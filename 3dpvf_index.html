@@ -11,6 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
+    <script src="wx/js/brain-loader.js"></script> 
     <script src="wx/js/brain-surface-viewer.js"></script>
     <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"> -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -403,6 +405,13 @@
         let present_PVF         = false;
         let present_streamlines = false;
 
+
+        let brainSurfaces = {
+            left: null,
+            right: null
+        };
+        let brainLoader; // 声明brainLoader实例
+
         // GUI parameters
         t_min             = 0
         t_max             = 99
@@ -465,6 +474,10 @@
             // });
             // Create vector objects
             createVectorObjects();
+
+            // 初始化BrainLoader
+            brainLoader = new BrainLoader(scene);
+
             
             // Setup stats
             updateStats();
@@ -761,6 +774,57 @@
             };
             // loadingIndicator.classList.add('hidden', 'opacity-0');
         };
+
+        // 添加新函数用于加载大脑皮层
+        async function loadBrainSurfaces(subject) {
+            try {
+                // 显示加载指示器
+                loadingIndicator.classList.remove('hidden', 'opacity-0');
+                
+                // 调用API获取表面文件路径
+                const response = await fetch(`http://localhost:3000/api/get-brain-surfaces?subject=${encodeURIComponent(subject)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to get brain surfaces (${response.status})`);
+                }
+                
+                const data = await response.json();
+                
+                // 如果已有表面，先从场景中移除
+                if (brainSurfaces.left) {
+                    scene.remove(brainSurfaces.left.mesh);
+                }
+                if (brainSurfaces.right) {
+                    scene.remove(brainSurfaces.right.mesh);
+                }
+                
+                // 加载左半球
+                if (data.lh_surface) {
+                    brainSurfaces.left = await brainLoader.loadOBJModel(data.lh_surface, {
+                        color: 0x888888,
+                        opacity: 0.6,
+                        wireframe: false
+                    });
+                }
+                
+                // 加载右半球
+                if (data.rh_surface) {
+                    brainSurfaces.right = await brainLoader.loadOBJModel(data.rh_surface, {
+                        color: 0x888888,
+                        opacity: 0.6,
+                        wireframe: false
+                    });
+                }
+                
+                showError(`Successfully loaded brain surfaces for ${subject}`);
+                loadingIndicator.classList.add('hidden', 'opacity-0');
+                
+            } catch (error) {
+                console.error('Error loading brain surfaces:', error);
+                showError(`Failed to load brain surfaces: ${error.message}`);
+                loadingIndicator.classList.add('hidden', 'opacity-0');
+            }
+        }
 
 
         // Generate vector field based on settings
@@ -1567,6 +1631,8 @@
             timeSliderTMax.innerHTML = "Tmax=" + t_max;
             timeSliderTMin.innerHTML = "Tmin=" + t_min;
             timeSliderCurrentTime.innerHTML = "Curr Time=" + timeSlider.value;
+
+            loadBrainSurfaces(subject);
 
             showError("PVF and streamlines loaded successfully.");
             loadingIndicator.classList.add('hidden', 'opacity-0');

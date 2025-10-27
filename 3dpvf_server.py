@@ -130,6 +130,24 @@ async def update_pvf_streamlines(subject: str = Query(None), file: str = Query(N
         return {"message": "Subject or file mismatch"}
 
 
+@app.get("/api/get-brain-surfaces")
+async def get_brain_surfaces(subject: str = Query(None)):
+    """获取指定受试者的大脑皮层表面文件路径"""
+    if not subject:
+        return {"error": "Subject ID is required"}
+    
+    lh_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/lh.pial.obj"
+    rh_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/rh.pial.obj"
+    
+    lh_exists = os.path.exists(lh_path)
+    rh_exists = os.path.exists(rh_path)
+    
+    return {
+        "lh_surface": f"pvf_data/fs_subjects/{subject}/surf/lh.pial.obj" if lh_exists else None,
+        "rh_surface": f"pvf_data/fs_subjects/{subject}/surf/rh.pial.obj" if rh_exists else None,
+        "subject": subject
+    }
+
 # functions to process PVF data
 def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
