@@ -11,7 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 app = FastAPI()
-
 # 允许跨域请求
 app.add_middleware(
     CORSMiddleware,
