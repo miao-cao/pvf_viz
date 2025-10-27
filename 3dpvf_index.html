@@ -390,6 +390,7 @@
         // PVF variables
         let subject_ID          = "";
         let PVF_dimension       = 50;
+        let PVF_times           = [];
         let PVF_num_time_points = 100;
         let PVF_positions       = [];
         let PVF_directions      = [];
@@ -399,8 +400,8 @@
         let PVF_pattern_data    = {};
         
 
-        let volume_size         = 50; // where brain, vectors and streamlines reside
-        let streamlineWidth     = 0.04; // 0.025 streamline tube width
+        let volume_size         = 50;       // where brain, vectors and streamlines reside
+        let streamlineWidth     = 0.1;      // 0.025 streamline tube width
         let streamlinesGroup    = new THREE.Group();
         let present_PVF         = false;
         let present_streamlines = false;
@@ -604,9 +605,12 @@
             // });
             timeSlider.min                  = t_min;
             timeSlider.max                  = t_max;
-            timeSliderTMax.innerHTML        = "Tmax=" + t_max;
-            timeSliderTMin.innerHTML        = "Tmin=" + t_min;
-            timeSliderCurrentTime.innerHTML = "Curr Time=" + current_timepoint;
+            const times_tmin        = t_min;
+            const times_tmax        = t_max;
+            const times_currenttime = 0;
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
+            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
             
             // Vector scale
             document.getElementById('vector-scale').addEventListener('input', (e) => {
@@ -635,7 +639,8 @@
 
             document.getElementById('time-slider').addEventListener('change', (e) => {
                 current_timepoint               = e.target.value;
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + current_timepoint;
+                const times_currenttime = PVF_times[current_timepoint];
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
                 updatePVFStreamlines();
                 showError(current_timepoint)
                 // updateVectorObjects();
@@ -757,6 +762,7 @@
             const data = await response.json();
             PVF_positions    = data.pvf_positions;
             PVF_directions   = data.pvf_directions;
+            PVF_times        = data.times;
             PVF_condA        = data.condA;
             PVF_pattern_data = data.patterns;
             PVF_streamlines  = data.streamlines;
@@ -1587,8 +1593,9 @@
             if (current_timepoint > t_min){
                 current_timepoint -= 1;
                 timeSlider.value = current_timepoint;
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + timeSlider.value;
+                const times_currenttime = PVF_times[current_timepoint];
                 updatePVFStreamlines();
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
             }
         };
         
@@ -1597,8 +1604,9 @@
             if (current_timepoint < t_max && current_timepoint + 1 <= t_max){
                 current_timepoint += 1;
                 timeSlider.value = current_timepoint;
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + timeSlider.value;
+                const times_currenttime = PVF_times[current_timepoint];
                 updatePVFStreamlines();
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
             }
         };
 
@@ -1618,19 +1626,23 @@
             subject_ID          = data.subject_ID;
             PVF_positions       = data.pvf_positions;
             PVF_directions      = data.pvf_directions;
+            PVF_times           = data.times;
             PVF_condA           = data.condA;
             PVF_pattern_data    = data.patterns;
             PVF_streamlines     = data.streamlines;
             PVF_num_time_points = data.PVF_num_time_points;
             PVF_dimension       = data.PVF_dimension;
             t_max               = PVF_num_time_points - 1;
-
+            // console.log(`PVF_num_time_points: ${PVF_times}`);
             timeSlider.min           = t_min;
             timeSlider.max           = t_max;
             timeSlider.value         = current_timepoint;
-            timeSliderTMax.innerHTML = "Tmax=" + t_max;
-            timeSliderTMin.innerHTML = "Tmin=" + t_min;
-            timeSliderCurrentTime.innerHTML = "Curr Time=" + timeSlider.value;
+            const times_tmin        = PVF_times[t_min];
+            const times_tmax        = PVF_times[t_max];
+            const times_currenttime = PVF_times[timeSlider.value];
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
+            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
 
             loadBrainSurfaces(subject);
 
