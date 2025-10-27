@@ -206,6 +206,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global pvf_condA_fname, pvf_condA_data, pvf_pattern_fname, pvf_pattern_data
     global pvf_streamline_folder, pvf_streamlines_time_windows, pvf_num_time_points
     global pvf_dimension, dim_shift, pvf_mask_volume, pvf_streamline_all_time_windows
+    global pvf_times
     
     subject_id         = subject_name
     metadata_path      = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"

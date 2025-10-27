@@ -1530,8 +1530,8 @@
                 current_timepoint -= 1;
                 timeSlider.value = current_timepoint;
                 const times_currenttime = PVF_times[current_timepoint];
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
                 updatePVFStreamlines();
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
             }
         };
         
@@ -1541,8 +1541,8 @@
                 current_timepoint += 1;
                 timeSlider.value = current_timepoint;
                 const times_currenttime = PVF_times[current_timepoint];
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
                 updatePVFStreamlines();
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
             }
         };
 
@@ -1569,7 +1569,7 @@
             PVF_num_time_points = data.PVF_num_time_points;
             PVF_dimension       = data.PVF_dimension;
             t_max               = PVF_num_time_points - 1;
-            console.log(`PVF_num_time_points: ${PVF_times.length}`);
+            // console.log(`PVF_num_time_points: ${PVF_times}`);
             timeSlider.min           = t_min;
             timeSlider.max           = t_max;
             timeSlider.value         = current_timepoint;
