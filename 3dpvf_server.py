@@ -22,11 +22,12 @@ app.add_middleware(
 )
 
 # PVF metadata
-subject_id         : str            = ""
-pvf_metadata_fname : str            = ""
-pvf_metadata       : Dict[str, Any] = {}
-pvf_num_time_points: int            = 0
-pvf_dimension      : int            = 50
+subject_id          : str            = ""
+pvf_metadata_fname  : str            = ""
+pvf_metadata        : Dict[str, Any] = {}
+pvf_num_time_points: int             = 0
+pvf_times           : List[float]    = []
+pvf_dimension       : int            = 50
 
 # PVF data
 pvf_mask_volume = []
@@ -36,8 +37,8 @@ pvf_vz          = []
 
 dim_shift                : List[int]           = [25, 25, 25]
 temporary_map_dim_shifts: Dict[str, List[int]] = {
-    "sub-003": [25, 25, 20],
-    "sub-005": [25, 25, 17],
+    # "sub-003": [25, 25, 20],
+    # "sub-005": [25, 25, 17],
 }
 
 # PVF condition numbers
@@ -222,17 +223,21 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     # 读取元数据
     try:
         with open(metadata_path, "r", encoding="utf8") as f:
-            pvf_metadata             = json.load(f)
-            pvf_mask_volume          = np.asarray(pvf_metadata['volume_mask'])
-            resp_value["subject_ID"] = subject_name
-            # resp_value["volume_mask"] = pvf_metadata['volume_mask']
+            pvf_metadata                      = json.load(f)
+            pvf_mask_volume                   = np.asarray(pvf_metadata['volume_mask'])
+            resp_value["subject_ID"]          = subject_name
+            resp_value["times"]               = pvf_metadata['times']
+            resp_value["PVF_num_time_points"] = len(pvf_metadata['times'])
+            pvf_num_time_points               = len(pvf_metadata['times'])
+            pvf_times                         = pvf_metadata['times']
 
             if subject_id in temporary_map_dim_shifts:
                 dim_shift = temporary_map_dim_shifts[subject_id]
             else:
                 dim_shift = pvf_metadata['dim_shift']
             
-            print(f"Successfully loading: {metadata_path}")
+            print(f"Successfully loaded: {metadata_path}")
+            print(f"Number of Timepoints: {pvf_num_time_points}")
             print(f"Dim shift: {dim_shift}")
     except Exception as e:
         print(f"处理失败: {e}")
@@ -245,10 +250,9 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
             pvf_num_time_points = pvf_vx.shape[3]
             pvf_dimension       = pvf_vx.shape[0]
             resp_value["PVF_dimension"] = pvf_dimension
-            resp_value["PVF_num_time_points"] = pvf_num_time_points
+            # resp_value["PVF_num_time_points"] = pvf_num_time_points
             print(f"PVF dimensions: {pvf_dimension}")
-            print(f"Number of Timepoints: {pvf_num_time_points}")
-            print(f"Successfully loading Vx: {vx_path}")
+            print(f"Successfully loaded Vx: {vx_path}")
     except Exception as e:
         print(f"处理失败: {e}")
     
@@ -312,13 +316,14 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
 async def resp_pvf_json(timepoint: int) -> Dict[str, Any]:
     """生成PVF JSON响应"""
     global subject_id, pvf_dimension, pvf_num_time_points
-    global pvf_condA_data, pvf_pattern_data
+    global pvf_condA_data, pvf_pattern_data, pvf_times
     pvf_data    = process_pvf_time_window(timepoint)
     streamlines = process_streamlines_time_window(timepoint)
     return {
         "subject_ID"         : subject_id,
         "pvf_positions"      : pvf_data["positions"].tolist(),
         "pvf_directions"     : pvf_data["directions"].tolist(),
+        "times"              : pvf_times,
         "condA"              : sum(pvf_condA_data[str(timepoint)]) / len(pvf_condA_data[str(timepoint)]),
         "patterns"           : pvf_pattern_data[str(timepoint)],
         "streamlines"        : streamlines,
@@ -329,7 +334,7 @@ async def resp_pvf_json(timepoint: int) -> Dict[str, Any]:
 
 async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
     """更新特定时间点的流线数据"""
-    global pvf_condA_data, pvf_pattern_data
+    global pvf_condA_data, pvf_pattern_data, pvf_times
     try:
         timepoint_int = int(timepoint)
         pvf_data    = process_pvf_time_window(timepoint_int)
@@ -337,6 +342,7 @@ async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
         return {
             "pvf_positions" : pvf_data["positions"].tolist(),
             "pvf_directions": pvf_data["directions"].tolist(),
+            "times"         : pvf_times,
             "condA"         : sum(pvf_condA_data[timepoint]) / len(pvf_condA_data[timepoint]),
             "patterns"      : pvf_pattern_data[timepoint],
             "streamlines"   : streamlines,
