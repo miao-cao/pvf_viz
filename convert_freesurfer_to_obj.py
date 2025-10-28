@@ -45,11 +45,11 @@ def convert_subject_data(subject_id, data_dir="data"):
         subject_id: 受试者ID (如 'p1')
         data_dir: 数据目录
     """
-    subject_dir = os.path.join(data_dir, subject_id)
+    subject_dir = f"{data_dir}/{subject_id}"
     
     # 转换左半球
-    lh_pial_fs = os.path.join(subject_dir, "lh.pial")
-    lh_pial_obj = os.path.join(subject_dir, "lh.pial.obj")
+    lh_pial_fs  = f"{subject_dir}/surf/lh.pial"      # os.path.join(subject_dir, "/surf/lh.pial")
+    lh_pial_obj = f"{subject_dir}/surf/lh.pial.obj"  # os.path.join(subject_dir, "/surf/lh.pial.obj")
     
     if os.path.exists(lh_pial_fs):
         convert_freesurfer_surface_to_obj(lh_pial_fs, lh_pial_obj)
@@ -57,8 +57,8 @@ def convert_subject_data(subject_id, data_dir="data"):
         print(f"警告: 找不到文件 {lh_pial_fs}")
     
     # 转换右半球
-    rh_pial_fs = os.path.join(subject_dir, "rh.pial")
-    rh_pial_obj = os.path.join(subject_dir, "rh.pial.obj")
+    rh_pial_fs = f"{subject_dir}/surf/rh.pial"          # os.path.join(subject_dir, "/surf/rh.pial")
+    rh_pial_obj = f"{subject_dir}/surf/rh.pial.obj"     # os.path.join(subject_dir, "/surf/rh.pial.obj")
     
     if os.path.exists(rh_pial_fs):
         convert_freesurfer_surface_to_obj(rh_pial_fs, rh_pial_obj)
@@ -66,6 +66,10 @@ def convert_subject_data(subject_id, data_dir="data"):
         print(f"警告: 找不到文件 {rh_pial_fs}")
 
 if __name__ == "__main__":
-    for subject_id in ["p1", "p2", "p3"]:
+    
+    data_dir = "/Users/miaoc/Desktop/Vectorfields/fs_subjects"   
+    subject_ids = ["sub-003", "sub-005"]                            # ["p1", "p2", "p3"]
+
+    for subject_id in subject_ids:
         print(f"\n转换受试者 {subject_id} 的数据...")
-        convert_subject_data(subject_id)
+        convert_subject_data(subject_id, data_dir=data_dir)
