@@ -523,10 +523,12 @@
             renderer = new THREE.WebGLRenderer({
                 canvas: document.getElementById('vector-field-canvas'),
                 antialias: true,
-                alpha: true
+                alpha: true,
+                powerPreference: 'high-performance',
             });
             renderer.setSize(visualizationContainer.clientWidth, visualizationContainer.clientHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.capabilities.getMaxAnisotropy(); // 利用各向异性过滤提升纹理质量（按需使用）
             
             // Add ambient light
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -1465,8 +1467,9 @@
                 const material = new THREE.MeshBasicMaterial({
                     vertexColors: THREE.VertexColors,  // 使用顶点颜色
                     side: THREE.DoubleSide,
-                    transparent: true,
-                    opacity: 0.85
+                    transparent: false,
+                    // opacity: 0.85,
+                    lights: false,
                 });
 
                 // 创建网格并返回
