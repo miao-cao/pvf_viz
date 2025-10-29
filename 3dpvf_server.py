@@ -5,6 +5,7 @@ from typing import Dict, List, Any, Optional
 import copy
 
 import numpy as np
+import mne
 
 from fastapi import FastAPI, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,13 +29,15 @@ pvf_num_time_points: int             = 0
 pvf_times           : List[float]    = []
 pvf_dimension       : int            = 50
 
+
 # PVF data
 pvf_mask_volume = []
 pvf_vx          = []
 pvf_vy          = []
 pvf_vz          = []
 
-dim_shift                : List[int]           = [25, 25, 25]
+dim_shift     : List[int] = [25, 25, 25]
+cal_dim_shift : List[int] = [0, 0, 0]
 temporary_map_dim_shifts: Dict[str, List[int]] = {
     # "sub-003": [25, 25, 20],
     # "sub-005": [25, 25, 17],
@@ -165,7 +168,6 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     positions = np.vstack([x[mask_volume].flatten(),
                         y[mask_volume].flatten(),
                         z[mask_volume].flatten()]).T
-    
     # VF arrows
     positions = (positions + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]],
                                    positions.shape[0], axis=0)) * 5
@@ -217,18 +219,47 @@ def load_streamlines_all_time_windows():
     print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
 
 
+def calibrate_pvf_dim_shift():
+    global subject_id, dim_shift, FS_SUBJECTS_DIR
+    whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
+    spacing = 5 # mm
+    src = mne.read_source_spaces(whole_brain_source_space_fname)
+
+    vertno = src[0]['vertno']
+    rescale_ind = src[0]['rr'][vertno] * 1000 / spacing
+    diff = rescale_ind - np.rint(rescale_ind)
+    cal_dim_shift = np.zeros(3)
+    
+    for i in range(3):
+        if np.max(rescale_ind[:, i]) >= 25 and np.max(rescale_ind[:, i]) < 30:
+            rescale_ind[:, i] += 20
+            cal_dim_shift[i] = 20
+        elif np.max(rescale_ind[:, i]) >= 30:
+            shift_value = 49 - np.max(rescale_ind[:, i])
+            rescale_ind[:, i] += (shift_value - 2)
+            cal_dim_shift[i] = shift_value - 2
+        else:
+            rescale_ind[:, i] += 25
+            cal_dim_shift[i] = 25
+        if np.min(rescale_ind[:, i]) < 0:
+            shift_value = 0 - np.min(rescale_ind[:, i])
+            rescale_ind[:, i] += (shift_value + 2)
+            cal_dim_shift[i] += shift_value + 2
+            # cal_dim_shift[i] += 3
+    
+    return cal_dim_shift.astype(int).tolist()
+
 async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     """Read PVF JSON files"""
     global subject_id, pvf_metadata_fname, pvf_metadata, pvf_vx, pvf_vy, pvf_vz
     global pvf_condA_fname, pvf_condA_data, pvf_pattern_fname, pvf_pattern_data
     global pvf_streamline_folder, pvf_streamlines_time_windows, pvf_num_time_points
     global pvf_dimension, dim_shift, pvf_mask_volume, pvf_streamline_all_time_windows
-    global pvf_times
+    global pvf_times, cal_dim_shift
     
-    subject_id         = subject_name
-    metadata_path      = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"
-    pvf_metadata_fname = file_name
-    
+    subject_id            = subject_name
+    metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"
+    pvf_metadata_fname    = file_name
     vx_path               = metadata_path.replace("_metadata.json", "_Vx.json")
     vy_path               = metadata_path.replace("_metadata.json", "_Vy.json")
     vz_path               = metadata_path.replace("_metadata.json", "_Vz.json")
@@ -248,25 +279,28 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
             resp_value["PVF_num_time_points"] = len(pvf_metadata['times'])
             pvf_num_time_points               = len(pvf_metadata['times'])
             pvf_times                         = pvf_metadata['times']
+            cal_dim_shift                     = calibrate_pvf_dim_shift()
 
             if subject_id in temporary_map_dim_shifts:
                 dim_shift = temporary_map_dim_shifts[subject_id]
             else:
                 dim_shift = pvf_metadata['dim_shift']
             
+            dim_shift = [25, 30, 25]
             print(f"Successfully loaded: {metadata_path}")
             print(f"Number of Timepoints: {pvf_num_time_points}")
             print(f"Dim shift: {dim_shift}")
+            print(f"Calibrated Dim shift: {cal_dim_shift}")
     except Exception as e:
         print(f"处理失败: {e}")
     
     # 读取Vx数据
     try:
         with open(vx_path, "r", encoding="utf8") as f:
-            data_vx             = json.load(f)
-            pvf_vx              = np.asarray(data_vx["Vx"])
-            pvf_num_time_points = pvf_vx.shape[3]
-            pvf_dimension       = pvf_vx.shape[0]
+            data_vx                     = json.load(f)
+            pvf_vx                      = np.asarray(data_vx["Vx"])
+            pvf_num_time_points         = pvf_vx.shape[3]
+            pvf_dimension               = pvf_vx.shape[0]
             resp_value["PVF_dimension"] = pvf_dimension
             # resp_value["PVF_num_time_points"] = pvf_num_time_points
             print(f"PVF dimensions: {pvf_dimension}")

@@ -385,7 +385,6 @@
 
         // brainbrowser viewer
         // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
-        // let viewer = new BrainSurfaceViewer();
         
         // PVF variables
         let subject_ID          = "";
@@ -809,8 +808,8 @@
                 // 加载左半球
                 if (data.lh_surface) {
                     brainSurfaces.left = await brainLoader.loadOBJModel(data.lh_surface, {
-                        color: 0x888888,
-                        opacity: 0.6,
+                        color: 0x222222,
+                        opacity: 0.25,
                         wireframe: false
                     });
                 }
@@ -818,8 +817,8 @@
                 // 加载右半球
                 if (data.rh_surface) {
                     brainSurfaces.right = await brainLoader.loadOBJModel(data.rh_surface, {
-                        color: 0x888888,
-                        opacity: 0.6,
+                        color: 0x222222,
+                        opacity: 0.25,
                         wireframe: false
                     });
                 }

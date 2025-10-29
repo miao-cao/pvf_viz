@@ -48,7 +48,7 @@ def convert_subject_data(subject_id, data_dir="data"):
     subject_dir = f"{data_dir}/{subject_id}"
     
     # 转换左半球
-    lh_pial_fs  = f"{subject_dir}/surf/lh.pial"      # os.path.join(subject_dir, "/surf/lh.pial")
+    lh_pial_fs  = f"{subject_dir}/surf/lh.pial.T1"      # os.path.join(subject_dir, "/surf/lh.pial")
     lh_pial_obj = f"{subject_dir}/surf/lh.pial.obj"  # os.path.join(subject_dir, "/surf/lh.pial.obj")
     
     if os.path.exists(lh_pial_fs):
@@ -57,7 +57,7 @@ def convert_subject_data(subject_id, data_dir="data"):
         print(f"警告: 找不到文件 {lh_pial_fs}")
     
     # 转换右半球
-    rh_pial_fs = f"{subject_dir}/surf/rh.pial"          # os.path.join(subject_dir, "/surf/rh.pial")
+    rh_pial_fs = f"{subject_dir}/surf/rh.pial.T1"          # os.path.join(subject_dir, "/surf/rh.pial")
     rh_pial_obj = f"{subject_dir}/surf/rh.pial.obj"     # os.path.join(subject_dir, "/surf/rh.pial.obj")
     
     if os.path.exists(rh_pial_fs):
