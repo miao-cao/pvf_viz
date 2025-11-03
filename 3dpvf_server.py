@@ -151,6 +151,24 @@ async def get_brain_surfaces(subject: str = Query(None)):
         "subject": subject
     }
 
+@app.get("/api/get-brain-surfaces-obj")
+async def get_brain_surfaces_obj(subject: str = Query(None)):
+    """获取指定受试者的大脑皮层表面文件路径"""
+    if not subject:
+        return {"error": "Subject ID is required"}
+    
+    lh_surf_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/lh.pial"
+    rh_surf_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/rh.pial"
+    lh_surf_obj  = mne.read_surface(lh_surf_path)
+    rh_surf_obj  = mne.read_surface(rh_surf_path)
+    
+    return {
+        "lh_surface": lh_surf_obj,
+        "rh_surface": rh_surf_obj,
+        "subject"   : subject,
+    }
+
+
 # functions to process PVF data
 def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
@@ -169,8 +187,13 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
                         y[mask_volume].flatten(),
                         z[mask_volume].flatten()]).T
     # VF arrows
-    positions = (positions + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]],
-                                   positions.shape[0], axis=0)) * 5
+    # positions = (positions + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]], positions.shape[0], axis=0)) * 5
+    x_deg     = np.pi / 180 * 4
+    y_deg     = np.pi / 180 * 0
+    z_deg     = np.pi / 180 * 0
+    rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
+    positions = calibrate_positions(positions, rt_mat)
+    positions = positions * 5                                                                                                                        # scale to mm
 
     u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
     directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
@@ -219,6 +242,43 @@ def load_streamlines_all_time_windows():
     print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
 
 
+# prepare 3-D translation + rotation matrix
+def rotation_transaltion_matrix(alpha: float, beta: float, gamma: float, tx: float, ty: float, tz: float) -> np.ndarray:
+    """生成3D旋转和平移矩阵"""
+    R_x = np.array([[1, 0, 0, 0],
+                    [0, np.cos(alpha), -np.sin(alpha), 0],
+                    [0, np.sin(alpha), np.cos(alpha), 0],
+                    [0, 0, 0, 1]])
+    
+    R_y = np.array([[np.cos(beta), 0, np.sin(beta), 0],
+                    [0, 1, 0, 0],
+                    [-np.sin(beta), 0, np.cos(beta), 0],
+                    [0, 0, 0, 1]])
+    
+    R_z = np.array([[np.cos(gamma), -np.sin(gamma), 0, 0],
+                    [np.sin(gamma), np.cos(gamma), 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]])
+    
+    T = np.array([[1, 0, 0, tx],
+                  [0, 1, 0, ty],
+                  [0, 0, 1, tz],
+                  [0, 0, 0, 1]])
+    
+    R = np.dot(R_z, np.dot(R_y, R_x))
+    RT = np.dot(T, R)
+    
+    return RT
+
+
+def calibrate_positions(positions: np.ndarray, rotation_matrx: List[int]) -> np.ndarray:
+    """校准位置数据"""
+    n_pos = positions.shape[0]
+    hom_positions = np.hstack([positions, np.ones((n_pos, 1))])
+    calibrated_positions = np.dot(hom_positions, np.array(rotation_matrx).T)
+    return calibrated_positions[:, :3]
+
+
 def calibrate_pvf_dim_shift():
     global subject_id, dim_shift, FS_SUBJECTS_DIR
     whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
@@ -246,8 +306,14 @@ def calibrate_pvf_dim_shift():
             rescale_ind[:, i] += (shift_value + 2)
             cal_dim_shift[i] += shift_value + 2
             # cal_dim_shift[i] += 3
+
+    temp_dim_shift = cal_dim_shift.astype(int).tolist()
+    cal_dim_shift[1] = 50 - temp_dim_shift[2]
+    cal_dim_shift[2] = 50 - temp_dim_shift[1]
+    cal_dim_shift[0] = 50 - temp_dim_shift[0]
     
     return cal_dim_shift.astype(int).tolist()
+
 
 async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     """Read PVF JSON files"""
@@ -279,14 +345,14 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
             resp_value["PVF_num_time_points"] = len(pvf_metadata['times'])
             pvf_num_time_points               = len(pvf_metadata['times'])
             pvf_times                         = pvf_metadata['times']
-            cal_dim_shift                     = calibrate_pvf_dim_shift()
+            cal_dim_shift                     = calibrate_pvf_dim_shift() # [25, 30, 25]
 
             if subject_id in temporary_map_dim_shifts:
                 dim_shift = temporary_map_dim_shifts[subject_id]
             else:
                 dim_shift = pvf_metadata['dim_shift']
             
-            dim_shift = [25, 30, 25]
+            dim_shift = cal_dim_shift
             print(f"Successfully loaded: {metadata_path}")
             print(f"Number of Timepoints: {pvf_num_time_points}")
             print(f"Dim shift: {dim_shift}")
