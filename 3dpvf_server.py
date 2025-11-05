@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import copy
 
 import numpy as np
@@ -36,8 +36,8 @@ pvf_vx          = []
 pvf_vy          = []
 pvf_vz          = []
 
-dim_shift     : List[int] = [25, 25, 25]
-cal_dim_shift : List[int] = [0, 0, 0]
+rotate_deg    : List[int] = [20, 0, 0]
+dim_shift     : List[int] = [25, 8, 0] # [25, 25, 25]
 temporary_map_dim_shifts: Dict[str, List[int]] = {
     # "sub-003": [25, 25, 20],
     # "sub-005": [25, 25, 17],
@@ -109,7 +109,7 @@ async def load_subjects_files(
         print(f"Loading subject: {subject}, file: {file}")
         
         # using background task to load all streamlines
-        background_tasks.add_task(load_streamlines_all_time_windows)
+        # background_tasks.add_task(load_streamlines_all_time_windows)
         
         data = await read_pvf_json(subject, file)
         
@@ -162,38 +162,44 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
     lh_surf_obj  = mne.read_surface(lh_surf_path)
     rh_surf_obj  = mne.read_surface(rh_surf_path)
     
-    return {
-        "lh_surface": lh_surf_obj,
-        "rh_surface": rh_surf_obj,
-        "subject"   : subject,
-    }
+    return {"lh_surf_obj": lh_surf_obj,
+            "rh_surf_obj": rh_surf_obj,
+            "subject_id" : subject,     }
 
 
 # functions to process PVF data
 def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
-    global pvf_vx, pvf_vy, pvf_vz, pvf_num_time_points, dim_shift, pvf_mask_volume
+    global pvf_vx, pvf_vy, pvf_vz, pvf_num_time_points, dim_shift, pvf_mask_volume, subject_id, pvf_metadata, rotate_deg
     print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {pvf_num_time_points}")
 
-    mask_volume = pvf_mask_volume
-    vx          = np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
-    vy          = np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
-    vz          = np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
+    mask_volume     = pvf_mask_volume
+    vx              = np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
+    vy              = np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
+    vz              = np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
+    volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
+    vert_no         = volume_vert_ind[mask_volume]
 
-    y, x, z = np.meshgrid(np.arange(0, vx.shape[0], 1),
-                        np.arange(0, vx.shape[0], 1),
-                        np.arange(0, vx.shape[0], 1))
-    positions = np.vstack([x[mask_volume].flatten(),
-                        y[mask_volume].flatten(),
-                        z[mask_volume].flatten()]).T
+    whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
+    src = mne.read_source_spaces(whole_brain_source_space_fname)
+    positions = src[0]['rr'][vert_no] * 1000
+
+
+    # y, x, z = np.meshgrid(np.arange(0, vx.shape[0], 1),
+    #                     np.arange(0, vx.shape[0], 1),
+    #                     np.arange(0, vx.shape[0], 1))
+    # positions = np.vstack([x[mask_volume].flatten(),
+    #                     y[mask_volume].flatten(),
+    #                     z[mask_volume].flatten()]).T
     # VF arrows
-    # positions = (positions + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]], positions.shape[0], axis=0)) * 5
-    x_deg     = np.pi / 180 * 4
-    y_deg     = np.pi / 180 * 0
-    z_deg     = np.pi / 180 * 0
+    
+    x_deg     = np.pi / 180 * rotate_deg[0]
+    y_deg     = np.pi / 180 * rotate_deg[1]
+    z_deg     = np.pi / 180 * rotate_deg[2]
+    # dim_shift = [25, 15, 0]  # 临时调整以匹配VF空间
     rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
     positions = calibrate_positions(positions, rt_mat)
-    positions = positions * 5                                                                                                                        # scale to mm
+    # positions = positions * 5 # scale to mm
 
     u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
     directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
@@ -204,14 +210,20 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
 
 def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
     """处理特定时间窗口的流线数据"""
-    global pvf_streamline_all_time_windows, dim_shift
+    global pvf_streamline_all_time_windows, dim_shift, rotate_deg
     streamlines = pvf_streamline_all_time_windows[str(pvf_time_window_id)]
     new_streamlines = []
+    x_deg     = np.pi / 180 * rotate_deg[0]
+    y_deg     = np.pi / 180 * rotate_deg[1]
+    z_deg     = np.pi / 180 * rotate_deg[2]
+    # dim_shift = [25, 15, 0]  # 临时调整以匹配VF空间
+    rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
     for s, streamline in enumerate(streamlines):
         streamline = np.asarray(streamline)
         n_pos = streamline.shape[0]
 
-        new_streamline = ((streamline + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]], n_pos, axis=0)) * 5 )
+        # new_streamline = ((streamline + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]], n_pos, axis=0)) * 5 )
+        new_streamline = calibrate_positions(streamline, rt_mat) * 5
         # vf space ijk                     #src-vf dim shift
         new_streamlines.append(new_streamline.tolist())
 
@@ -321,7 +333,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global pvf_condA_fname, pvf_condA_data, pvf_pattern_fname, pvf_pattern_data
     global pvf_streamline_folder, pvf_streamlines_time_windows, pvf_num_time_points
     global pvf_dimension, dim_shift, pvf_mask_volume, pvf_streamline_all_time_windows
-    global pvf_times, cal_dim_shift
+    global pvf_times
     
     subject_id            = subject_name
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"
@@ -345,18 +357,10 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
             resp_value["PVF_num_time_points"] = len(pvf_metadata['times'])
             pvf_num_time_points               = len(pvf_metadata['times'])
             pvf_times                         = pvf_metadata['times']
-            cal_dim_shift                     = calibrate_pvf_dim_shift() # [25, 30, 25]
 
-            if subject_id in temporary_map_dim_shifts:
-                dim_shift = temporary_map_dim_shifts[subject_id]
-            else:
-                dim_shift = pvf_metadata['dim_shift']
-            
-            dim_shift = cal_dim_shift
             print(f"Successfully loaded: {metadata_path}")
             print(f"Number of Timepoints: {pvf_num_time_points}")
             print(f"Dim shift: {dim_shift}")
-            print(f"Calibrated Dim shift: {cal_dim_shift}")
     except Exception as e:
         print(f"处理失败: {e}")
     
