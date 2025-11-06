@@ -85,6 +85,64 @@ class BrainLoader {
         });
     }
 
+    loadSurfObj(object, options = {}) {
+        return new Promise((resolve, reject) => {
+            // 遍历对象中的所有网格
+            object.traverse((child) => {
+                if (child.isMesh) {
+                    // 创建材质
+                    const material = new THREE.MeshLambertMaterial({
+                        color: options.color || 0x4facfe,
+                        transparent: true,
+                        opacity: options.opacity || 1,
+                        wireframe: options.wireframe || false,
+                        side: THREE.DoubleSide
+                    });
+                    
+                    child.material = material;
+                    
+                    // 计算法线用于光照
+                    if (child.geometry) {
+                        child.geometry.computeVertexNormals();
+                    }
+                }
+            });
+            
+            // 设置位置和缩放
+            if (options.position) {
+                object.position.copy(options.position);
+            }
+            
+            if (options.scale) {
+                object.scale.setScalar(options.scale);
+            }
+            
+            // 添加到场景
+            this.scene.add(object);
+            
+            // 计算顶点和面数
+            let vertexCount = 0;
+            let faceCount = 0;
+            
+            object.traverse((child) => {
+                if (child.isMesh && child.geometry) {
+                    vertexCount += child.geometry.attributes.position.count;
+                    if (child.geometry.index) {
+                        faceCount += child.geometry.index.count / 3;
+                    }
+                }
+            });
+            
+            resolve({
+                mesh: object,
+                geometry: null,
+                material: null,
+                vertexCount: vertexCount,
+                faceCount: faceCount
+            });
+        });
+    }
+
     // 加载PLY文件
     loadPLYModel(url, options = {}) {
         return new Promise((resolve, reject) => {

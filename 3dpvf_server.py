@@ -1,8 +1,9 @@
 import os
 import json
+import copy
 from pathlib import Path
 from typing import Dict, List, Any
-import copy
+
 
 import numpy as np
 import mne
@@ -109,10 +110,11 @@ async def load_subjects_files(
         print(f"Loading subject: {subject}, file: {file}")
         
         # using background task to load all streamlines
-        # background_tasks.add_task(load_streamlines_all_time_windows)
+        
         
         data = await read_pvf_json(subject, file)
-        
+
+        # background_tasks.add_task(load_streamlines_all_time_windows)
         # await load_streamlines_all_time_windows()
         return data
     else:
@@ -157,13 +159,14 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
     if not subject:
         return {"error": "Subject ID is required"}
     
+    print(f"Loading brain surfaces for subject: {subject}")
     lh_surf_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/lh.pial"
     rh_surf_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/rh.pial"
-    lh_surf_obj  = mne.read_surface(lh_surf_path)
-    rh_surf_obj  = mne.read_surface(rh_surf_path)
+    lh_vertices, lh_faces  = mne.read_surface(lh_surf_path)
+    rh_vertices, rh_faces  = mne.read_surface(rh_surf_path)
     
-    return {"lh_surf_obj": lh_surf_obj,
-            "rh_surf_obj": rh_surf_obj,
+    return {"lh_surface": {'vertices': lh_vertices.tolist(), 'faces': lh_faces.tolist()},
+            "rh_surface": {'vertices': rh_vertices.tolist(), 'faces': rh_faces.tolist()},
             "subject_id" : subject,     }
 
 

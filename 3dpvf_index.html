@@ -677,27 +677,6 @@
             document.getElementById('reset-animation').addEventListener('click', resetAnimation);
         }
 
-
-        function loadSurface(viewer) {
-            // load brain surface left hemisphere
-            viewer.loadSurfaceFromURL("pvf_data/fs_subjects/sub-003/surf/lh.pial.obj", {
-                success: () => {
-                viewer.setSurfaceColor("#e0e0e0");
-                viewer.setSurfaceOpacity(0.5);
-                viewer.resetView();
-                }
-            });
-            // load brain surface right hemisphere
-            viewer.loadSurfaceFromURL("pvf_data/fs_subjects/sub-003/surf/rh.pial.obj", {
-                success: () => {
-                viewer.setSurfaceColor("#e0e0e0");
-                viewer.setSurfaceOpacity(0.5);
-                viewer.resetView();
-                }
-            });
-        }
-
-
         // load PVF vector field
         function loadPVFVectorField() {
             vectorField = [];
@@ -789,7 +768,8 @@
                 loadingIndicator.classList.remove('hidden', 'opacity-0');
                 
                 // 调用API获取表面文件路径
-                const response = await fetch(`http://localhost:3000/api/get-brain-surfaces?subject=${encodeURIComponent(subject)}`);
+                // const response = await fetch(`http://localhost:3000/api/get-brain-surfaces?subject=${encodeURIComponent(subject)}`);
+                const response = await fetch(`http://localhost:3000/api/get-brain-surfaces-obj?subject=${encodeURIComponent(subject)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to get brain surfaces (${response.status})`);
@@ -807,7 +787,12 @@
                 
                 // 加载左半球
                 if (data.lh_surface) {
-                    brainSurfaces.left = await brainLoader.loadOBJModel(data.lh_surface, {
+                    // brainSurfaces.left = await brainLoader.loadOBJModel(data.lh_surface, {
+                    //     color: 0x222222,
+                    //     opacity: 0.25,
+                    //     wireframe: false
+                    // });
+                    brainSurfaces.left = await brainLoader.loadSurfObj(data.lh_surface, {
                         color: 0x222222,
                         opacity: 0.25,
                         wireframe: false
@@ -816,7 +801,12 @@
                 
                 // 加载右半球
                 if (data.rh_surface) {
-                    brainSurfaces.right = await brainLoader.loadOBJModel(data.rh_surface, {
+                    // brainSurfaces.right = await brainLoader.loadOBJModel(data.rh_surface, {
+                    //     color: 0x222222,
+                    //     opacity: 0.25,
+                    //     wireframe: false
+                    // });
+                    brainSurfaces.right = await brainLoader.loadSurfObj(data.rh_surface, {
                         color: 0x222222,
                         opacity: 0.25,
                         wireframe: false
