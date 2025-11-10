@@ -43,6 +43,7 @@ temporary_map_dim_shifts: Dict[str, List[int]] = {
     # "sub-003": [25, 25, 20],
     # "sub-005": [25, 25, 17],
 }
+vol_src = None
 
 # PVF condition numbers
 pvf_condA_fname: str            = ""
@@ -173,7 +174,7 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
 # functions to process PVF data
 def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
-    global pvf_vx, pvf_vy, pvf_vz, pvf_num_time_points, dim_shift, pvf_mask_volume, subject_id, pvf_metadata, rotate_deg
+    global pvf_vx, pvf_vy, pvf_vz, pvf_num_time_points, dim_shift, pvf_mask_volume, subject_id, pvf_metadata, rotate_deg, vol_src
     print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {pvf_num_time_points}")
 
     mask_volume     = pvf_mask_volume
@@ -183,9 +184,8 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
     vert_no         = volume_vert_ind[mask_volume]
 
-    whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
-    src = mne.read_source_spaces(whole_brain_source_space_fname)
-    positions = src[0]['rr'][vert_no] * 1000
+
+    positions = vol_src[0]['rr'][vert_no] * 1000
 
 
     # y, x, z = np.meshgrid(np.arange(0, vx.shape[0], 1),
@@ -336,7 +336,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global pvf_condA_fname, pvf_condA_data, pvf_pattern_fname, pvf_pattern_data
     global pvf_streamline_folder, pvf_streamlines_time_windows, pvf_num_time_points
     global pvf_dimension, dim_shift, pvf_mask_volume, pvf_streamline_all_time_windows
-    global pvf_times
+    global pvf_times, vol_src
     
     subject_id            = subject_name
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"
@@ -351,6 +351,9 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     resp_value: Dict[str, Any] = {}
     
     # 读取元数据
+    whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
+    vol_src = mne.read_source_spaces(whole_brain_source_space_fname)
+    print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
     try:
         with open(metadata_path, "r", encoding="utf8") as f:
             pvf_metadata                      = json.load(f)
