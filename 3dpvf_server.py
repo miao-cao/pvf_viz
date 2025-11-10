@@ -386,7 +386,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
         with open(vy_path, "r", encoding="utf8") as f:
             data_vy = json.load(f)
             pvf_vy  = np.asarray(data_vy["Vy"])
-            print(f"Successfully loading Vy: {vy_path}")
+            print(f"Successfully loaded Vy: {vy_path}")
     except Exception as e:
         print(f"处理失败: {e}")
     
@@ -395,7 +395,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
         with open(vz_path, "r", encoding="utf8") as f:
             data_vz = json.load(f)
             pvf_vz  = np.asarray(data_vz["Vz"])
-            print(f"Successfully loading Vz: {vz_path}")
+            print(f"Successfully loaded Vz: {vz_path}")
     except Exception as e:
         print(f"处理失败: {e}")
     
@@ -403,7 +403,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     try:
         with open(condA_path, "r", encoding="utf8") as f:
             pvf_condA_data = json.load(f)
-            print(f"Successfully loading condA: {condA_path}")
+            print(f"Successfully loaded condA: {condA_path}")
     except Exception as e:
         print(f"处理失败: {e}")
     
@@ -411,7 +411,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     try:
         with open(pattern_path, "r", encoding="utf8") as f:
             pvf_pattern_data = json.load(f)
-            print(f"Successfully loading Patterns: {pattern_path}")
+            print(f"Successfully loaded patterns: {pattern_path}")
     except Exception as e:
         print(f"处理失败: {e}")
     
@@ -421,7 +421,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
         with open(first_tw_path, "r", encoding="utf8") as f:
             pvf_streamlines_time_windows = json.load(f)
             pvf_streamline_all_time_windows = copy.copy(pvf_streamlines_time_windows)
-            print(f"Successfully loading Streamlines: {pvf_streamline_folder}")
+            print(f"Successfully loaded Streamlines: {pvf_streamline_folder}")
     except Exception as e:
         print(f"处理失败: {e}")
     

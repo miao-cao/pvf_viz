@@ -85,62 +85,31 @@ class BrainLoader {
         });
     }
 
-    loadSurfObj(object, options = {}) {
-        return new Promise((resolve, reject) => {
-            // 遍历对象中的所有网格
-            object.traverse((child) => {
-                if (child.isMesh) {
-                    // 创建材质
-                    const material = new THREE.MeshLambertMaterial({
-                        color: options.color || 0x4facfe,
-                        transparent: true,
-                        opacity: options.opacity || 1,
-                        wireframe: options.wireframe || false,
-                        side: THREE.DoubleSide
-                    });
-                    
-                    child.material = material;
-                    
-                    // 计算法线用于光照
-                    if (child.geometry) {
-                        child.geometry.computeVertexNormals();
-                    }
-                }
-            });
-            
-            // 设置位置和缩放
-            if (options.position) {
-                object.position.copy(options.position);
-            }
-            
-            if (options.scale) {
-                object.scale.setScalar(options.scale);
-            }
-            
-            // 添加到场景
-            this.scene.add(object);
-            
-            // 计算顶点和面数
-            let vertexCount = 0;
-            let faceCount = 0;
-            
-            object.traverse((child) => {
-                if (child.isMesh && child.geometry) {
-                    vertexCount += child.geometry.attributes.position.count;
-                    if (child.geometry.index) {
-                        faceCount += child.geometry.index.count / 3;
-                    }
-                }
-            });
-            
-            resolve({
-                mesh: object,
-                geometry: null,
-                material: null,
-                vertexCount: vertexCount,
-                faceCount: faceCount
-            });
+    async loadSurfObj(surface_data, options = {}) {
+        const vertices = surface_data['vertices'];
+        const faces    = surface_data['faces'];
+        const typedVertices = new Float32Array(vertices.flat());
+        const typedIntFaces = new Uint32Array(faces.flat());
+        // 4. 创建几何体：绑定顶点和面索引
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(typedVertices, 3)); // 每个顶点3个坐标
+        geometry.setIndex(new THREE.BufferAttribute(typedIntFaces, 1)); // 每个面3个顶点索引
+        geometry.computeVertexNormals(); // 计算法向量（让光照生效）
+
+        // 5. 创建材质（模拟大脑表面质感）
+        const material = new THREE.MeshPhongMaterial({
+            color      : options.color || 0xffddcc,   // 大脑肤色
+            specular   : 0x333333,                    // 高光颜色
+            shininess  : 10,                          // 高光强度
+            side       : THREE.DoubleSide,            // 双面渲染（避免内部面不可见）
+            wireframe  : false,                       // 填充模式（true 可显示三角网格）
+            transparent: true,
+            opacity    : options.opacity || 1,
         });
+        // 6. 创建大脑网格并添加到场景
+        const brainMesh = new THREE.Mesh(geometry, material);
+        this.scene.add(brainMesh);
+        return brainMesh;
     }
 
     // 加载PLY文件
