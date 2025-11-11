@@ -188,14 +188,6 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     # obtain positions in mm from volume source space
     positions = vol_src[0]['rr'][vert_no] * 1000
 
-    # x_deg     = np.pi / 180 * rotate_deg[0]
-    # y_deg     = np.pi / 180 * rotate_deg[1]
-    # z_deg     = np.pi / 180 * rotate_deg[2]
-    # # dim_shift = [25, 15, 0]  # 
-    # rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
-    # positions = calibrate_positions(positions, rt_mat)
-    # positions = positions * 5 # scale to mm
-
     u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
     directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
 
@@ -207,22 +199,18 @@ def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
     """处理特定时间窗口的流线数据"""
     global pvf_streamline_all_time_windows, dim_shift, rotate_deg
     streamlines = pvf_streamline_all_time_windows[str(pvf_time_window_id)]
-    new_streamlines = []
-    x_deg     = np.pi / 180 * rotate_deg[0]
-    y_deg     = np.pi / 180 * rotate_deg[1]
-    z_deg     = np.pi / 180 * rotate_deg[2]
-    # dim_shift = [25, 15, 0]  # 临时调整以匹配VF空间
-    rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
-    for s, streamline in enumerate(streamlines):
-        streamline = np.asarray(streamline)
-        n_pos = streamline.shape[0]
+    new_streamlines = streamlines # []
 
-        # new_streamline = ((streamline + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]], n_pos, axis=0)) * 5 )
-        # new_streamline = calibrate_positions(streamline, rt_mat) * 5
-        # vf space ijk                     #src-vf dim shift
-        # new_streamline = streamline * 5
-        new_streamline = streamline
-        new_streamlines.append(new_streamline.tolist())
+    # x_deg     = np.pi / 180 * rotate_deg[0]
+    # y_deg     = np.pi / 180 * rotate_deg[1]
+    # z_deg     = np.pi / 180 * rotate_deg[2]
+    # rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
+    
+    # for s, streamline in enumerate(streamlines):
+    #     streamline = np.asarray(streamline)
+    #     n_pos = streamline.shape[0]
+
+    #     new_streamlines.append(streamline.tolist())
 
     print(f"Processed {len(new_streamlines)} streamlines at time point: {pvf_time_window_id}")
     return new_streamlines
