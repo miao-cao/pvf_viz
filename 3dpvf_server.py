@@ -37,19 +37,18 @@ pvf_vx          = []
 pvf_vy          = []
 pvf_vz          = []
 
+# Volume source space
+vol_src = None
+
 rotate_deg    : List[int] = [20, 0, 0]
 dim_shift     : List[int] = [25, 8, 0] # [25, 25, 25]
-temporary_map_dim_shifts: Dict[str, List[int]] = {
-    # "sub-003": [25, 25, 20],
-    # "sub-005": [25, 25, 17],
-}
-vol_src = None
+
 
 # PVF condition numbers
 pvf_condA_fname: str            = ""
 pvf_condA_data : Dict[str, Any] = {}
 
-# PVF condition numbers
+# PVF pattern detection
 pvf_pattern_fname: str            = ""
 pvf_pattern_data : Dict[str, Any] = {}
 
@@ -154,17 +153,19 @@ async def get_brain_surfaces(subject: str = Query(None)):
         "subject": subject
     }
 
+
 @app.get("/api/get-brain-surfaces-obj")
 async def get_brain_surfaces_obj(subject: str = Query(None)):
-    """获取指定受试者的大脑皮层表面文件路径"""
+    """Obtain Brain surfaces as vertices and faces"""
     if not subject:
         return {"error": "Subject ID is required"}
     
-    print(f"Loading brain surfaces for subject: {subject}")
     lh_surf_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/lh.pial"
     rh_surf_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/rh.pial"
     lh_vertices, lh_faces  = mne.read_surface(lh_surf_path)
     rh_vertices, rh_faces  = mne.read_surface(rh_surf_path)
+
+    print(f"Brain surfaces for subject: {subject} loaded.")
     
     return {"lh_surface": {'vertices': lh_vertices.tolist(), 'faces': lh_faces.tolist()},
             "rh_surface": {'vertices': rh_vertices.tolist(), 'faces': rh_faces.tolist()},
