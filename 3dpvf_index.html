@@ -453,25 +453,6 @@
             // Setup Three.js scene
             setupThreeJS();
             
-            // BrainBrowser.SurfaceViewer.start("brainbrowser", function(viewer) {
-
-            //     //Add an event listener.
-            //     viewer.addEventListener("displaymodel", function() {
-            //         console.log("We have a model!");
-            //     });
-
-            //     // Start rendering the scene.
-            //     viewer.render();
-
-            //     // Load a model into the scene.
-            //     viewer.loadModelFromURL("/models/brain_surface.obj");
-
-            //     // Hook viewer behaviour into UI.
-            //     $("#wireframe").change(function(e) {
-            //         viewer.setWireframe($(this).is(":checked"));
-            //     });
-
-            // });
             // Create vector objects
             createVectorObjects();
 
@@ -824,112 +805,6 @@
             }
         }
 
-
-        // Generate vector field based on settings
-        function generateVectorField() {
-            vectorField = [];
-            const size = settings.resolution;
-            const spacing = 100 / (size - 1);
-            
-            for (let i = 0; i < size; i++) {
-                for (let j = 0; j < size; j++) {
-                    for (let k = 0; k < size; k++) {
-                        // Calculate position
-                        const x = i * spacing - 10;
-                        const y = j * spacing - 10;
-                        const z = k * spacing - 10;
-                        
-                        // Calculate vector based on field type
-                        let vx, vy, vz;
-                        
-                        switch (settings.fieldType) {
-                            case 'random':
-                                vx = Math.random() * 2 - 1;
-                                vy = Math.random() * 2 - 1;
-                                vz = Math.random() * 2 - 1;
-                                break;
-                                
-                            case 'curl':
-                                // Curl field example: v = (-y, x, 0)
-                                vx = -y;
-                                vy = x;
-                                vz = 0;
-                                break;
-                                
-                            case 'divergence':
-                                // Divergent field example: v = (x, y, z)
-                                vx = x;
-                                vy = y;
-                                vz = z;
-                                break;
-                                
-                            case 'vortex':
-                                // Vortex field
-                                const r = Math.sqrt(x * x + y * y) + 0.1;
-                                vx = -y / r;
-                                vy = x / r;
-                                vz = 0;
-                                break;
-                                
-                            case 'custom':
-                                // Custom field - could be modified based on user input
-                                vx = PVF_Vx[i][j][k];
-                                vy = PVF_Vy[i][j][k];
-                                vz = PVF_Vz[i][j][k];
-                                break;
-                        }
-                        
-                        // Normalize vector
-                        const magnitude = Math.sqrt(vx * vx + vy * vy + vz * vz);
-                        if (magnitude > 0) {
-                            vx /= magnitude;
-                            vy /= magnitude;
-                            vz /= magnitude;
-                        }
-                        
-                        vectorField.push({
-                            position: new THREE.Vector3(x, y, z),
-                            direction: new THREE.Vector3(vx, vy, vz),
-                            magnitude: magnitude
-                        });
-                    }
-                }
-            }
-        }
-        
-        // Regenerate vector field and update visualization
-        function regenerateVectorField() {
-            // Show loading indicator
-            loadingIndicator.classList.remove('hidden', 'opacity-0');
-            
-            // Remove existing vector objects
-            removeVectorObjects();
-            
-            // Generate new vector field
-            // generateVectorField();
-            loadPVFVectorField();
-            
-            // Create new vector objects
-            createVectorObjects();
-            
-            // Update particles if needed
-            if (settings.showStreamlines) {
-                createParticles();
-            }
-            
-            // Update stats
-            updateStats();
-
-            loadingIndicator.classList.add('hidden', 'opacity-0');
-            // // Hide loading indicator
-            // setTimeout(() => {
-            //     loadingIndicator.classList.add('opacity-0');
-            //     setTimeout(() => {
-            //         loadingIndicator.classList.add('hidden');
-            //     }, 300);
-            // }, 500);
-        }
-        
         // Create vector objects in the scene
         function createVectorObjects() {
             // Clear existing vector objects

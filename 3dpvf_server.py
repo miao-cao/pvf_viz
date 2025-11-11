@@ -185,24 +185,15 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
     vert_no         = volume_vert_ind[mask_volume]
 
-
+    # obtain positions in mm from volume source space
     positions = vol_src[0]['rr'][vert_no] * 1000
 
-
-    # y, x, z = np.meshgrid(np.arange(0, vx.shape[0], 1),
-    #                     np.arange(0, vx.shape[0], 1),
-    #                     np.arange(0, vx.shape[0], 1))
-    # positions = np.vstack([x[mask_volume].flatten(),
-    #                     y[mask_volume].flatten(),
-    #                     z[mask_volume].flatten()]).T
-    # VF arrows
-    
-    x_deg     = np.pi / 180 * rotate_deg[0]
-    y_deg     = np.pi / 180 * rotate_deg[1]
-    z_deg     = np.pi / 180 * rotate_deg[2]
-    # dim_shift = [25, 15, 0]  # 临时调整以匹配VF空间
-    rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
-    positions = calibrate_positions(positions, rt_mat)
+    # x_deg     = np.pi / 180 * rotate_deg[0]
+    # y_deg     = np.pi / 180 * rotate_deg[1]
+    # z_deg     = np.pi / 180 * rotate_deg[2]
+    # # dim_shift = [25, 15, 0]  # 
+    # rt_mat    = rotation_transaltion_matrix(alpha=x_deg, beta=y_deg, gamma=z_deg, tx=dim_shift[2]*(-1), ty=dim_shift[1]*(-1), tz=dim_shift[0]*(-1))
+    # positions = calibrate_positions(positions, rt_mat)
     # positions = positions * 5 # scale to mm
 
     u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
@@ -227,8 +218,10 @@ def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
         n_pos = streamline.shape[0]
 
         # new_streamline = ((streamline + np.repeat([[-dim_shift[0], -dim_shift[1], -dim_shift[2]]], n_pos, axis=0)) * 5 )
-        new_streamline = calibrate_positions(streamline, rt_mat) * 5
+        # new_streamline = calibrate_positions(streamline, rt_mat) * 5
         # vf space ijk                     #src-vf dim shift
+        # new_streamline = streamline * 5
+        new_streamline = streamline
         new_streamlines.append(new_streamline.tolist())
 
     print(f"Processed {len(new_streamlines)} streamlines at time point: {pvf_time_window_id}")
@@ -351,10 +344,12 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     
     resp_value: Dict[str, Any] = {}
     
-    # 读取元数据
+    # reading meta information and volume source space
+    
     whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
-    vol_src = mne.read_source_spaces(whole_brain_source_space_fname)
+    vol_src                        = mne.read_source_spaces(whole_brain_source_space_fname)
     print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
+
     try:
         with open(metadata_path, "r", encoding="utf8") as f:
             pvf_metadata                      = json.load(f)
