@@ -407,8 +407,8 @@
 
 
         let brainSurfaces = {
-            left: null,
-            right: null
+            left : null,
+            right: null,
         };
         let brainLoader; // 声明brainLoader实例
 
@@ -438,7 +438,7 @@
             vectorDisplay  : 'arrows',
             showStreamlines: true,
             animationSpeed : 1,
-            particleCount  : 100
+            particleCount  : 100,
         };
         
         // Initialize the application
@@ -627,30 +627,7 @@
                 showError(current_timepoint)
                 // updateVectorObjects();
             });
-            
-            // // Show streamlines
-            // document.getElementById('show-streamlines').addEventListener('change', (e) => {
-            //     settings.showStreamlines = e.target.checked;
-            //     if (settings.showStreamlines) {
-            //         createParticles();
-            //     } else {
-            //         removeParticles();
-            //     }
-            // });
-            
-            // Animation speed
-            // document.getElementById('animation-speed').addEventListener('input', (e) => {
-            //     settings.animationSpeed = parseFloat(e.target.value);
-            // });
-            
-            // // Particle count
-            // document.getElementById('particle-count').addEventListener('input', (e) => {
-            //     settings.particleCount = parseInt(e.target.value);
-            //     if (settings.showStreamlines) {
-            //         createParticles();
-            //     }
-            // });
-            
+                        
             // Play/pause animation
             document.getElementById('play-pause').addEventListener('click', toggleAnimation);
             
@@ -736,8 +713,14 @@
 
             // Update streamlines
             if (present_streamlines == true){
-                // removeStreamlines();
-                createStreamlines();
+                function animate() {
+                    requestAnimationFrame(animate);
+                    removeStreamlines();
+                    createStreamlines();
+                    controls.update();
+                    renderer.render(scene, camera);
+                }
+                animate();
             };
             // loadingIndicator.classList.add('hidden', 'opacity-0');
         };
@@ -912,12 +895,13 @@
         // Remove vector objects from the scene
         function removeVectorObjects() {
             vectorObjects.forEach(object => {
-                scene.remove(object);
+                
                 // while (object.children.length > 0) {
                 //     scene.remove(object.children[0]);
                 // }
                 if (object.geometry) object.geometry.dispose();
                 if (object.material) object.material.dispose();
+                scene.remove(object);
             });
             vectorObjects = [];
         }
@@ -963,148 +947,7 @@
             }
         }
         
-        // Create particles for streamlines
-        function createParticles() {
-            // Remove existing particles
-            removeParticles();
-            
-            const particleGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(settings.particleCount * 3);
-            
-            // Initialize particles at random positions
-            for (let i = 0; i < settings.particleCount; i++) {
-                const i3 = i * 3;
-                positions[i3] = Math.random() * 20 - 10;  // x
-                positions[i3 + 1] = Math.random() * 20 - 10;  // y
-                positions[i3 + 2] = Math.random() * 20 - 10;  // z
-            }
-            
-            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            
-            const particleMaterial = new THREE.PointsMaterial({
-                size: 0.15,
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.8,
-                sizeAttenuation: true
-            });
-            
-            const particles = new THREE.Points(particleGeometry, particleMaterial);
-            scene.add(particles);
-            
-            // Store particles with their trail history
-            particles.trailHistory = [];
-            for (let i = 0; i < settings.particleCount; i++) {
-                particles.trailHistory.push([]);
-            }
-            
-            particles.trailLines = [];
-            
-            this.particles = particles;
-        }
-        
-        // Remove particles from the scene
-        function removeParticles() {
-            if (this.particles) {
-                scene.remove(this.particles);
-                this.particles.geometry.dispose();
-                this.particles.material.dispose();
-                
-                // Remove trail lines
-                if (this.particles.trailLines) {
-                    this.particles.trailLines.forEach(line => {
-                        scene.remove(line);
-                        line.geometry.dispose();
-                        line.material.dispose();
-                    });
-                }
-                
-                this.particles = null;
-            }
-        }
-        
-        // Update particles position based on vector field
-        function updateParticles(deltaTime) {
-            if (!this.particles || !settings.showStreamlines) return;
-            
-            const particles = this.particles;
-            const positions = particles.geometry.attributes.position.array;
-            const speedFactor = settings.animationSpeed * deltaTime;
-            
-            // Update each particle position
-            for (let i = 0; i < settings.particleCount; i++) {
-                const i3 = i * 3;
-                const x = positions[i3];
-                const y = positions[i3 + 1];
-                const z = positions[i3 + 2];
-                
-                // Find nearest vector in the field
-                const nearestVector = findNearestVector(x, y, z);
-                
-                // Get direction from nearest vector
-                const direction = nearestVector.direction.clone();
-                
-                // Update position
-                positions[i3] += direction.x * speedFactor;
-                positions[i3 + 1] += direction.y * speedFactor;
-                positions[i3 + 2] += direction.z * speedFactor;
-                
-                // Wrap around if particle goes outside bounds
-                if (positions[i3] > 10) positions[i3] = -10;
-                if (positions[i3] < -10) positions[i3] = 10;
-                if (positions[i3 + 1] > 10) positions[i3 + 1] = -10;
-                if (positions[i3 + 1] < -10) positions[i3 + 1] = 10;
-                if (positions[i3 + 2] > 10) positions[i3 + 2] = -10;
-                if (positions[i3 + 2] < -10) positions[i3 + 2] = 10;
-                
-                // Update trail history
-                const trailHistory = particles.trailHistory[i];
-                trailHistory.push(new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]));
-                
-                // Limit trail length
-                if (trailHistory.length > 30) {
-                    trailHistory.shift();
-                }
-            }
-            
-            particles.geometry.attributes.position.needsUpdate = true;
-            
-            // Update trail lines
-            updateTrailLines();
-        }
-        
-        // Update trail lines for particles
-        function updateTrailLines() {
-            if (!this.particles) return;
-            
-            const particles = this.particles;
-            
-            // Remove old trail lines
-            particles.trailLines.forEach(line => {
-                scene.remove(line);
-                line.geometry.dispose();
-                line.material.dispose();
-            });
-            particles.trailLines = [];
-            
-            // Create new trail lines
-            for (let i = 0; i < settings.particleCount; i++) {
-                const trailHistory = particles.trailHistory[i];
-                
-                if (trailHistory.length > 1) {
-                    const trailGeometry = new THREE.BufferGeometry().setFromPoints(trailHistory);
-                    const trailMaterial = new THREE.LineBasicMaterial({
-                        color: new THREE.Color().setHSL(i / settings.particleCount, 1, 0.5),
-                        transparent: true,
-                        opacity: 0.6
-                    });
-                    const trailLine = new THREE.Line(trailGeometry, trailMaterial);
-                    scene.add(trailLine);
-                    particles.trailLines.push(trailLine);
-                }
-            }
-        }
-        
+
         // Find nearest vector in the field to a given position
         function findNearestVector(x, y, z) {
             let nearestVector = vectorField[0];
@@ -1134,7 +977,7 @@
             if (isAnimating) {
                 playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
                 if (settings.showStreamlines && !this.particles) {
-                    createParticles();
+                    // createParticles();
                 }
             } else {
                 playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
@@ -1247,9 +1090,6 @@
             controls.update();
             
             // Update particles if animation is enabled
-            if (isAnimating) {
-                updateParticles(0.016); // Assuming ~60fps
-            }
             
             // Render scene
             renderer.render(scene, camera);
@@ -1271,13 +1111,40 @@
         });
         
         // streamlines
-        /**
-         */
+        function removeStreamlines() {
+            if (streamlinesGroup) {
+                streamlinesGroup.traverse((obj) => {
+                    // 释放几何体
+                    if (obj.geometry) {
+                        obj.geometry.dispose();
+                    }
+
+                    // 释放材质（处理数组或单个材质）
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) {
+                            obj.material.forEach((mat) => mat.dispose());
+                        } else {
+                            obj.material.dispose();
+                        }
+                    }
+
+                    // 释放纹理（若材质中包含纹理）
+                    if (obj.material && obj.material.map) {
+                        obj.material.map.dispose();
+                    }
+                });
+                scene.remove(streamlinesGroup);
+                streamlinesGroup.clear();
+                streamlinesGroup = null;
+            }
+        };
+
         function createStreamlines() {
             // 创建流线组统一管理
             // 清除旧的流线
-            streamlinesGroup.clear();
-            // streamlinesGroup = new THREE.Group();
+            // streamlinesGroup.clear();
+            removeStreamlines();
+            streamlinesGroup = new THREE.Group();
             streamlinesGroup.name = 'PVFstreamlines';
             scene.add(streamlinesGroup);
 
@@ -1343,12 +1210,12 @@
             };
 
             // 4. 渲染循环
-            function animate() {
-                requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
-            }
-            animate();
+            // function animate() {
+            //     requestAnimationFrame(animate);
+            //     controls.update();
+            //     renderer.render(scene, camera);
+            // }
+            // animate();
             // 窗口大小适配
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;

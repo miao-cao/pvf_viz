@@ -12,6 +12,9 @@ from fastapi import FastAPI, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+import asyncio
+import aiofiles
+
 app = FastAPI()
 # 允许跨域请求
 app.add_middleware(
@@ -112,7 +115,7 @@ async def load_subjects_files(
         data = await read_pvf_json(subject, file)
 
         # background_tasks.add_task(load_streamlines_all_time_windows)
-        # await load_streamlines_all_time_windows()
+        task = asyncio.create_task(load_streamlines_all_time_windows())
         return data
     else:
         return {"message": "No data found."}
@@ -203,7 +206,7 @@ def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
 
 
 # async functions to read all streamlines data
-def load_streamlines_all_time_windows():
+async def load_streamlines_all_time_windows():
     """loading all streamlines from folder in background"""
     global pvf_streamline_all_time_windows, pvf_streamline_folder
     print(f"Background loading streamlines of all time windows from folder: {pvf_streamline_folder}")
@@ -216,8 +219,10 @@ def load_streamlines_all_time_windows():
     for file in streamline_files:
         print(f"Loading streamlines from: {file}")
         file_path = os.path.join(pvf_streamline_folder, file)
-        with open(file_path, "r", encoding="utf8") as f:
-            streamlines_time_windows = json.load(f)
+        async with aiofiles.open(file_path, "r", encoding="utf8") as f:
+            content = await f.read()  # 异步读取全部内容
+            streamlines_time_windows = json.loads(content)  # 解析 JSON
+            # streamlines_time_windows = json.load(f)
             for timepoint, streamlines in streamlines_time_windows.items():
                 pvf_streamline_all_time_windows[timepoint] = streamlines
     
