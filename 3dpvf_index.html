@@ -428,6 +428,7 @@
         let lastTime    = 0;
         let fps         = 0;
         
+
         // Settings
         let settings = {
             fieldType      : 'random',
@@ -506,6 +507,14 @@
                 alpha: true,
                 powerPreference: 'high-performance',
             });
+
+            // 这是默认行为，通常不需要手动设置
+            renderer.autoClear = true; 
+
+            // 你也可以更精细地控制清除哪些缓冲区
+            renderer.clearColor   = true;  // clear colour buffer
+            renderer.clearDepth   = true;  // clear depth buffer
+            renderer.clearStencil = true;  // clear stencil buffer
             renderer.setSize(visualizationContainer.clientWidth, visualizationContainer.clientHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.capabilities.getMaxAnisotropy(); // 利用各向异性过滤提升纹理质量（按需使用）
@@ -1141,7 +1150,7 @@
         };
 
         function createStreamlines() {
-            
+
             // clear streamlines from previous frame
             removeStreamlines();
             streamlinesGroup = new THREE.Group();
