@@ -427,6 +427,8 @@
         let isAnimating = false;
         let lastTime    = 0;
         let fps         = 0;
+
+        // const BufferGeometryUtils = require('three/addons/utils/BufferGeometryUtils.js');
         
 
         // Settings
@@ -724,7 +726,7 @@
             if (present_streamlines == true){
                 function animate() {
                     requestAnimationFrame(animate);
-                    removeStreamlines();
+                    // removeStreamlines();
                     createStreamlines();
                     controls.update();
                     renderer.render(scene, camera);
@@ -1122,6 +1124,8 @@
         // streamlines
         function removeStreamlines() {
             renderer.clear();
+            if (!streamlinesGroup) return;
+            
             if (streamlinesGroup) {
                 streamlinesGroup.traverse((obj) => {
                     // 释放几何体
@@ -1145,7 +1149,7 @@
                 });
                 scene.remove(streamlinesGroup);
                 streamlinesGroup.clear();
-                streamlinesGroup = null;
+                // streamlinesGroup = null;
             }
         };
 
@@ -1220,8 +1224,11 @@
                     lights: false,
                 });
 
+                // const mergedGeometry = BufferGeometryUtils.mergeBufferGeometries(geometry);
+
                 // 创建网格并返回
                 const streamline = new THREE.Mesh(geometry, material);
+                // const streamline = new THREE.Mesh(mergedGeometry, material);
                 streamlinesGroup.add(streamline);
             };
 

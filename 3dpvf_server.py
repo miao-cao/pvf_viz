@@ -189,7 +189,8 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     positions = vol_src[0]['rr'][vert_no] * 1000
 
     u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
-    directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
+    # directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
+    directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
 
     
     return {"positions": positions, "directions": directions}
