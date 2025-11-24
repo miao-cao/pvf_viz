@@ -58,6 +58,7 @@ pvf_streamlines_time_windows   : Dict[str, Any] = {}
 pvf_streamline_all_time_windows: Dict[str, Any] = {}
 pvf_streamlines_tmin           : int            = 0
 pvf_streamlines_tmax           : int            = 4
+downsample_factor              : int            = 4
 
 # PVF data directories
 PVF_SUBJECTS_DIR = f"{Path(__file__).parent}/pvf_data/pvf_subjects"
@@ -196,11 +197,22 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     return {"positions": positions, "directions": directions}
 
 
+# downsample streamlines for faster rendering
+def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]:
+    """Downsample streamlines by a given factor"""
+    downsampled_streamlines = []
+    for sl in streamlines:
+        downsampled_sl = sl[::factor]
+        downsampled_streamlines.append(downsampled_sl)
+    return downsampled_streamlines
+
+
 def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
     """处理特定时间窗口的流线数据"""
-    global pvf_streamline_all_time_windows
+
+    global pvf_streamline_all_time_windows, downsample_factor
     streamlines = pvf_streamline_all_time_windows[str(pvf_time_window_id)]
-    new_streamlines = streamlines # []
+    new_streamlines = downsample_streamlines(streamlines, factor=downsample_factor)
 
     print(f"Processed {len(new_streamlines)} streamlines at time point: {pvf_time_window_id}")
     return new_streamlines
