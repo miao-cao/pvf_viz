@@ -11,11 +11,13 @@ import mne
 from fastapi import FastAPI, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+# from fastapi.staticfiles import StaticFiles
 
 import asyncio
 import aiofiles
 
 app = FastAPI()
+
 # 允许跨域请求
 app.add_middleware(
     CORSMiddleware,
@@ -173,6 +175,8 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
             "subject_id" : subject,     }
 
 
+# app.mount("/", StaticFiles(directory=".", html=True), name="static")
+
 # functions to process PVF data
 def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
@@ -188,6 +192,13 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
 
     # obtain positions in mm from volume source space
     positions = vol_src[0]['rr'][vert_no] * 1000
+
+    # if vol_src is not None:
+    #     volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
+    #     vert_no         = volume_vert_ind[mask_volume]
+    #     positions = vol_src[0]['rr'][vert_no] * 1000
+    # else:
+    #     positions = np.zeros((np.sum(mask_volume), 3))
 
     u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
     # directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
@@ -269,6 +280,8 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     vol_src                        = mne.read_source_spaces(whole_brain_source_space_fname)
     print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
 
+    # vol_src = None
+
     try:
         with open(metadata_path, "r", encoding="utf8") as f:
             pvf_metadata                      = json.load(f)
@@ -324,7 +337,6 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"处理失败: {e}")
     
-    # 读取模式检测数据
     try:
         with open(pattern_path, "r", encoding="utf8") as f:
             pvf_pattern_data = json.load(f)
@@ -343,14 +355,14 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
         print(f"处理失败: {e}")
     
     # 处理默认时间点数据
-    default_first_timepoint      = 0
-    pvf_data                     = process_pvf_time_window(default_first_timepoint)
-    streamlines                  = process_streamlines_time_window(default_first_timepoint)
-    resp_value["pvf_positions"]  = pvf_data["positions"].tolist()
-    resp_value["pvf_directions"] = pvf_data["directions"].tolist()
-    resp_value["condA"]          = sum(pvf_condA_data[str(default_first_timepoint)]) / len(pvf_condA_data[str(default_first_timepoint)])
-    resp_value["patterns"]       = pvf_pattern_data.get(str(default_first_timepoint), {})
-    resp_value["streamlines"]    = streamlines
+    default_first_timepoint          = 0
+    pvf_data                         = process_pvf_time_window(default_first_timepoint)
+    streamlines                      = process_streamlines_time_window(default_first_timepoint)
+    resp_value["pvf_positions"]      = pvf_data["positions"].tolist()
+    resp_value["pvf_directions"]     = pvf_data["directions"].tolist()
+    resp_value["condA"]              = sum(pvf_condA_data[str(default_first_timepoint)]) / len(pvf_condA_data[str(default_first_timepoint)])
+    resp_value["patterns"]           = pvf_pattern_data.get(str(default_first_timepoint), []) 
+    resp_value["streamlines"]        = streamlines
     
     return resp_value
 
@@ -367,7 +379,7 @@ async def resp_pvf_json(timepoint: int) -> Dict[str, Any]:
         "pvf_directions"     : pvf_data["directions"].tolist(),
         "times"              : pvf_times,
         "condA"              : sum(pvf_condA_data[str(timepoint)]) / len(pvf_condA_data[str(timepoint)]),
-        "patterns"           : pvf_pattern_data[str(timepoint)],
+        "patterns"           : pvf_pattern_data.get(str(timepoint), []),
         "streamlines"        : streamlines,
         "PVF_dimension"      : pvf_dimension,
         "PVF_num_time_points": pvf_num_time_points,
@@ -375,7 +387,7 @@ async def resp_pvf_json(timepoint: int) -> Dict[str, Any]:
 
 
 async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
-    """更新特定时间点的流线数据"""
+    """更新特定时间点的流线数据及奇点数据"""
     global pvf_condA_data, pvf_pattern_data, pvf_times
     try:
         timepoint_int = int(timepoint)
@@ -386,7 +398,7 @@ async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
             "pvf_directions": pvf_data["directions"].tolist(),
             "times"         : pvf_times,
             "condA"         : sum(pvf_condA_data[timepoint]) / len(pvf_condA_data[timepoint]),
-            "patterns"      : pvf_pattern_data[timepoint],
+            "patterns"      : pvf_pattern_data.get(timepoint, []), 
             "streamlines"   : streamlines,
         }
     except ValueError:
