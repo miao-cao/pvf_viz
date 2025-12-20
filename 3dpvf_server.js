@@ -257,7 +257,7 @@ async function readPVFJson(subjectsDir, subjectName, fileName) {
     // PVF Vy
     try {
         // 同步方法：无回调，直接获取结果
-        const data          = fs.readFileSync(PVF_Vy_fname, 'utf8');
+        const data        = fs.readFileSync(PVF_Vy_fname, 'utf8');
         PVF_Vy        = JSON.parse(data);
         console.log('Successfully loading Vy:', PVF_Vy_fname);
     } catch (err) {
@@ -324,7 +324,7 @@ async function readPVFJson(subjectsDir, subjectName, fileName) {
     resp_value.Y  = PVF_Y;
     resp_value.Z  = PVF_Z;
     resp_value.condA = arr_average(PVF_condA_data[`${default_first_timepoint}`]);
-    resp_value.patterns = PVF_pattern_data[`${default_first_timepoint}`];
+    resp_value.patterns = PVF_pattern_data[`${default_first_timepoint}`] || [];
     resp_value.streamlines = PVF_streamlines_timeWindows[`${default_first_timepoint}`];
 
 
@@ -346,7 +346,7 @@ async function resp_PVFJson(timepoint){
     resp_value.Y                   = PVF_Y;
     resp_value.Z                   = PVF_Z;
     resp_value.condA               = arr_average(PVF_condA_data[`${timepoint}`]);
-    resp_value.patterns            = PVF_pattern_data[`${timepoint}`];
+    resp_value.patterns            = PVF_pattern_data[`${timepoint}`] || [];
     resp_value.streamlines         = PVF_streamlines_timeWindows[`${timepoint}`];
     resp_value.PVF_dimension       = PVF_dimension;
     resp_value.PVF_num_time_points = PVF_num_time_points;
@@ -361,7 +361,7 @@ async function updatePVFStreamlines(timepoint) {
     resp_value.Vy            = PVF_data.Vy;
     resp_value.Vz            = PVF_data.Vz;
     resp_value.condA         = arr_average(PVF_condA_data[`${timepoint}`]);
-    resp_value.patterns      = PVF_pattern_data[`${timepoint}`];
+    resp_value.patterns      = PVF_pattern_data[`${timepoint}`] || [];
     resp_value.streamlines   = PVF_streamline_allTimeWindows[`${timepoint}`];
     
     return resp_value;
