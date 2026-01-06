@@ -184,14 +184,25 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {pvf_num_time_points}")
 
     mask_volume     = pvf_mask_volume
-    vx              = np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
-    vy              = np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
-    vz              = np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
+    vx              = np.squeeze(pvf_vx[pvf_time_window_id, :, :, :]) # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
+    vy              = np.squeeze(pvf_vy[pvf_time_window_id, :, :, :]) # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
+    vz              = np.squeeze(pvf_vz[pvf_time_window_id, :, :, :]) # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
     volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
     vert_no         = volume_vert_ind[mask_volume]
 
     # obtain positions in mm from volume source space
-    positions = vol_src[0]['rr'][vert_no] * 1000
+    positions  = np.zeros((np.sum(mask_volume), 3))
+    directions = np.zeros((np.sum(mask_volume), 3))
+
+    id_serial = 0
+    for idz in range(vx.shape[0]):
+        for idy in range(vx.shape[1]):
+            for idx in range(vx.shape[2]):
+                if mask_volume[idz, idy, idx]:
+                    vert_index               = volume_vert_ind[idz, idy, idx]
+                    positions[id_serial, :]  = vol_src[0]['rr'][vert_index] * 1000
+                    directions[id_serial,:]  = [vx[idz, idy, idx], vy[idz, idy, idx], vz[idz, idy, idx]]
+                    id_serial               += 1
 
     # if vol_src is not None:
     #     volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
@@ -200,9 +211,9 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     # else:
     #     positions = np.zeros((np.sum(mask_volume), 3))
 
-    u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
+    # u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
     # directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
-    directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
+    # directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
 
     
     return {"positions": positions, "directions": directions}
@@ -222,8 +233,11 @@ def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
     """处理特定时间窗口的流线数据"""
 
     global pvf_streamline_all_time_windows, downsample_factor
-    streamlines = pvf_streamline_all_time_windows[str(pvf_time_window_id)]
-    new_streamlines = downsample_streamlines(streamlines, factor=downsample_factor)
+    
+    new_streamlines = []
+    if len(pvf_streamline_all_time_windows) != 0:
+        streamlines = pvf_streamline_all_time_windows[str(pvf_time_window_id)]
+        new_streamlines = downsample_streamlines(streamlines, factor=downsample_factor)
 
     print(f"Processed {len(new_streamlines)} streamlines at time point: {pvf_time_window_id}")
     return new_streamlines
@@ -302,8 +316,8 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
         with open(vx_path, "r", encoding="utf8") as f:
             data_vx                     = json.load(f)
             pvf_vx                      = np.asarray(data_vx["Vx"])
-            pvf_num_time_points         = pvf_vx.shape[3]
-            pvf_dimension               = pvf_vx.shape[0]
+            pvf_num_time_points         = pvf_vx.shape[0]
+            pvf_dimension               = pvf_vx.shape[-1]
             resp_value["PVF_dimension"] = pvf_dimension
             # resp_value["PVF_num_time_points"] = pvf_num_time_points
             print(f"PVF dimensions: {pvf_dimension}")
