@@ -324,9 +324,22 @@
                     <p class="text-light/80">Loading PVF data...</p>
                 </div>
             </div>
-            
+            <!-- Time Overlay -->
+            <div id="stats-overlay" class="absolute top-4 left-1/2 bg-dark/70 backdrop-blur-sm rounded-lg p-3 border border-white/10 text-xs text-light/80", style="font-size: xx-large;">
+                <div class="flex items-center gap-2 mb-1">
+                    <!-- <i class="fas fa-info-circle text-primary"></i>
+                    <span class="font-large">Time</span> -->
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span>Current Time:</span>
+                        <span id="time-stat"></span>
+                    </div>
+
+                </div>
+            </div>
             <!-- Stats Overlay -->
-            <div id="stats-overlay" class="absolute bottom-4 right-4 bg-dark/70 backdrop-blur-sm rounded-lg p-3 border border-white/10 text-xs text-light/80">
+            <div id="stats-overlay" class="absolute bottom-4 right-10 bg-dark/70 backdrop-blur-sm rounded-lg p-3 border border-white/10 text-xs text-light/80", style="font-size: large;">
                 <div class="flex items-center gap-2 mb-1">
                     <i class="fas fa-info-circle text-primary"></i>
                     <span class="font-medium">Vector Stats</span>
@@ -385,6 +398,7 @@
         const timeSliderTMax        = document.getElementById('time-slider-tmax');
         const timeSliderCurrentTime = document.getElementById('time-slider-ct');
         const timeSlider            = document.getElementById('time-slider');
+        const timeStat              = document.getElementById('time-stat');
 
         // brainbrowser viewer
         // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
@@ -652,6 +666,7 @@
             timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
             timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
             timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+            timeStat.innerHTML = times_currenttime.toFixed(2);
             
             // Vector scale
             document.getElementById('vector-scale').addEventListener('input', (e) => {
@@ -692,6 +707,8 @@
                 current_timepoint               = e.target.value;
                 const times_currenttime = PVF_times[current_timepoint];
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
+
                 updatePVFStreamlines();
                 showError(current_timepoint)
                 // updateVectorObjects();
@@ -1545,6 +1562,7 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 updatePVFStreamlines();
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
             }
         };
         
@@ -1558,6 +1576,7 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 updatePVFStreamlines();
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
             }
         };
 
@@ -1594,6 +1613,7 @@
             timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
             timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
             timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+            timeStat.innerHTML = times_currenttime.toFixed(2);
 
             loadBrainSurfaces(subject);
             
