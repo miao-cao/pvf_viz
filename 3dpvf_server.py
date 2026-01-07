@@ -194,26 +194,30 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     positions  = np.zeros((np.sum(mask_volume), 3))
     directions = np.zeros((np.sum(mask_volume), 3))
 
-    id_serial = 0
-    for idz in range(vx.shape[0]):
-        for idy in range(vx.shape[1]):
-            for idx in range(vx.shape[2]):
-                if mask_volume[idz, idy, idx]:
-                    vert_index               = volume_vert_ind[idz, idy, idx]
-                    positions[id_serial, :]  = vol_src[0]['rr'][vert_index] * 1000
-                    directions[id_serial,:]  = [vx[idz, idy, idx], vy[idz, idy, idx], vz[idz, idy, idx]]
-                    id_serial               += 1
+    # id_serial = 0
+    # for idz in range(vx.shape[0]):
+    #     for idy in range(vx.shape[1]):
+    #         for idx in range(vx.shape[2]):
+    #             if mask_volume[idz, idy, idx]:
+    #                 vert_index               = volume_vert_ind[idz, idy, idx]
+    #                 positions[id_serial, :]  = vol_src[0]['rr'][vert_index] * 1000
+    #                 directions[id_serial,:]  = [vx[idz, idy, idx], vy[idz, idy, idx], vz[idz, idy, idx]]
+    #                 id_serial               += 1
 
-    # if vol_src is not None:
-    #     volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
-    #     vert_no         = volume_vert_ind[mask_volume]
-    #     positions = vol_src[0]['rr'][vert_no] * 1000
-    # else:
-    #     positions = np.zeros((np.sum(mask_volume), 3))
+    # positions_2 = np.zeros((np.sum(mask_volume), 3))
+    if vol_src is not None:
+        volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
+        vert_no         = volume_vert_ind[mask_volume]
+        positions = vol_src[0]['rr'][vert_no] * 1000
+        # positions_2 = vol_src[0]['rr'][vert_no] * 1000
+    else:
+        positions = np.zeros((np.sum(mask_volume), 3))
+        # positions_2 = vol_src[0]['rr'][vert_no] * 1000
 
-    # u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
-    # directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T
+    u, v, w = vx[mask_volume] * -1, vy[mask_volume] * -1, vz[mask_volume] * -1
+    directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T # should not swap x and y
     # directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
+    # directions_2 = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
 
     
     return {"positions": positions, "directions": directions}

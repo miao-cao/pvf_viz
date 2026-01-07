@@ -137,12 +137,13 @@ def convert_pvf_data_2json(pvf_data_fname):
 
 if __name__ == "__main__":
     
-    data_dir = "/Users/miaoc/Desktop/Vectorfields/fs_subjects"   
-    subject_ids = ['sub19'] # ["sub-003", "sub-005"]                            # ["p1", "p2", "p3"]
+    # current version does not require any conversion any more
+    # data_dir = "/Users/miaoc/Desktop/Vectorfields/fs_subjects"   
+    # subject_ids = ['sub19'] # ["sub-003", "sub-005"]                            # ["p1", "p2", "p3"]
 
-    for subject_id in subject_ids:
-        print(f"\n转换受试者 {subject_id} 的数据...")
-        convert_subject_data(subject_id, data_dir=data_dir)
+    # for subject_id in subject_ids:
+    #     print(f"\n转换受试者 {subject_id} 的数据...")
+    #     convert_subject_data(subject_id, data_dir=data_dir)
 
-    # pvf_data_fname = "/Users/miaoc/Documents/Neuroscience/workspace/pvf_viz/pvf_data/pvf_subjects/sub19/pvf_propspiral_locInterphigh_signalamp1_spiralfreq1_spiralwavelength3_addnoiseTrue_noiseamp0.4_20260105154036"
-    # convert_pvf_data_2json(pvf_data_fname)
+    pvf_data_fname = "/Users/miaoc/Documents/Neuroscience/workspace/pvf_viz/pvf_data/pvf_subjects/sub19/pvf_propspiralgauss_locInterphigh_signalamp1_spiralfreq1_spiralwavelength3_addnoiseTrue_noiseamp0.2_20260106121619"
+    convert_pvf_data_2json(pvf_data_fname)
