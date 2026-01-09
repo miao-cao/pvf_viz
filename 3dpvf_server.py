@@ -214,10 +214,15 @@ def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
         positions = np.zeros((np.sum(mask_volume), 3))
         # positions_2 = vol_src[0]['rr'][vert_no] * 1000
 
-    u, v, w = vx[mask_volume] * -1, vy[mask_volume] * -1, vz[mask_volume] * -1
+    # u, v, w = vx[mask_volume] * -1, vy[mask_volume] * -1, vz[mask_volume] * -1
+    u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
     directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T # should not swap x and y
     # directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
     # directions_2 = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
+
+    # normalise directions
+    directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
+    directions = directions / directions_norm_max
 
     
     return {"positions": positions, "directions": directions}

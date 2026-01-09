@@ -1390,8 +1390,8 @@
                     points.push(new THREE.Vector3(streamline_points[j][0], streamline_points[j][1], streamline_points[j][2]));
                 }
                 // 跳过太短的流线
-                if (points.length < 5) return;
-
+                // if (points.length < 2) continue;
+                if (points.length > 5) continue;
                 // 2. 创建流线的可视化对象
                 const curve = new THREE.CatmullRomCurve3(points);
                 
