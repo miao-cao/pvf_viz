@@ -177,6 +177,10 @@
                         <label class="block text-sm font-medium text-light/80 mb-1">Show PVF vectors</label>
                         <!-- Present PVF button -->
                         <div class="flex items-center">
+                            <input type="checkbox" id="show-vectors" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-vectors" class="ml-2 text-sm text-light/80">Show vectors</label>
+                        </div>
+                        <div class="flex items-center">
                             <button id="present-pvf" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadPVFVectorField()">
                                 <i class="fas fa-long-arrow-right"></i>
                                 <span>Present PVF</span>
@@ -212,7 +216,11 @@
                             <label for="maxPointNum">Max point number:</label>    
                             <input type="number" id="maxPointNum" name="numInput", style="color: black; padding: 6px; border: 1px solid #ccc;", min="5", max="150", value="15", step="1">
                         </div>
-                        <label class="block text-sm font-medium text-light/80 mb-4">Show Streamlines</label>
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" id="show-streamlines" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-streamlines" class="ml-2 text-sm text-light/80">Show streamlines</label>
+                        </div>
                         <div class="flex items-center">
                             <button id="present-streamlines" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="createStreamlines()">
                                 <i class="fas fa-bars"></i>
@@ -703,6 +711,13 @@
                 updateVectorObjects();
             });
 
+            document.getElementById('show-vectors').addEventListener('change', (e) => {
+                present_PVF = e.target.value;
+                // createVectorObjects();
+                // updateVectorObjects();
+            });
+            
+
             // Singularity Settings
             document.getElementById('show-singularities').addEventListener('change', (e) => {
                 settings.showSingularities = e.target.checked;
@@ -721,6 +736,11 @@
             document.getElementById('maxPointNum').addEventListener('input', (e) => {
                 maxStreamlinePointNum = parseFloat(e.target.value);
                 //  console.log(maxStreamlinePointNum);
+            });
+
+            document.getElementById('show-streamlines').addEventListener('change', (e) => {
+                present_streamlines = e.target.checked;
+                createSingularities();               
             });
 
             document.getElementById('time-slider').addEventListener('change', (e) => {
@@ -823,14 +843,17 @@
 
             // Update streamlines
             if (present_streamlines == true){
-                function animate() {
-                    requestAnimationFrame(animate);
-                    // removeStreamlines();
-                    createStreamlines();
-                    controls.update();
-                    renderer.render(scene, camera);
-                }
-                animate();
+                // function animate() {
+                //     requestAnimationFrame(animate);
+                //     // removeStreamlines();
+                //     createStreamlines();
+                //     controls.update();
+                //     renderer.render(scene, camera);
+                // }
+                // animate();
+                createStreamlines();
+            }else{
+                removeStreamlines()
             };
             // loadingIndicator.classList.add('hidden', 'opacity-0');
         };
@@ -876,7 +899,8 @@
                 
                 // Determine scale based on spatial_extent and user setting
                 // extent represents the radius in grid units
-                const radius = extent * settings.singularityScale; 
+                // const radius = extent * settings.singularityScale; 
+                const radius = extent * 5; 
 
                 // Create a group for the singularity visual components
                 const group = new THREE.Group();
@@ -1029,105 +1053,114 @@
             // Clear existing vector objects
             removeVectorObjects();
             
-            // Create new vector objects based on settings
-            const scale = settings.vectorScale;
-            
-            vectorField.forEach(vector => {
-                let vectorObject;
+            if (present_PVF == true){
+                // Create new vector objects based on settings
+                const scale = settings.vectorScale;
                 
-                switch (settings.vectorDisplay) {
-                    case 'arrows':
-                        // Create arrow helper for each vector
-                        const arrowHelper = new THREE.ArrowHelper(
-                            vector.direction.clone().normalize(), // vector.direction.clone().multiplyScalar(scale),
-                            vector.position,
-                            vector.magnitude * scale * 1.2,
-                            getVectorColor(vector)
-                        );
-                        vectorObject = arrowHelper;
-                        vectorObject.setLength(1.5 * scale * vector.magnitude, 0.2 * scale, 0.1 * scale);
-                        break;
-                        
-                    case 'lines':
-                        // Create line for each vector
-                        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-                            vector.position,
-                            vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
-                        ]);
-                        const lineMaterial = new THREE.LineBasicMaterial({
-                            color: getVectorColor(vector),
-                            linewidth: 2
-                        });
-                        vectorObject = new THREE.Line(lineGeometry, lineMaterial);
-                        break;
-                        
-                    case 'tubes':
-                        // Create tube for each vector
-                        const tubeGeometry = new THREE.CylinderGeometry(
-                            0.05 * scale, 0.15 * scale, 1.5 * scale, 12
-                        );
-                        const tubeMaterial = new THREE.MeshStandardMaterial({
-                            color: getVectorColor(vector),
-                            roughness: 0.8,
-                            metalness: 0.2
-                        });
-                        vectorObject = new THREE.Mesh(tubeGeometry, tubeMaterial);
-                        
-                        // Position and orient the tube
-                        vectorObject.position.copy(vector.position);
-                        vectorObject.position.add(vector.direction.clone().multiplyScalar(0.75 * scale));
-                        
-                        const quaternion = new THREE.Quaternion();
-                        quaternion.setFromUnitVectors(
-                            new THREE.Vector3(0, 1, 0),
-                            vector.direction.clone().normalize()
-                        );
-                        vectorObject.setRotationFromQuaternion(quaternion);
-                        break;
-                }
-                
-                scene.add(vectorObject);
-                vectorObjects.push(vectorObject);
-            });
+                vectorField.forEach(vector => {
+                    let vectorObject;
+                    
+                    switch (settings.vectorDisplay) {
+                        case 'arrows':
+                            // Create arrow helper for each vector
+                            const arrowHelper = new THREE.ArrowHelper(
+                                vector.direction.clone().normalize(), // vector.direction.clone().multiplyScalar(scale),
+                                vector.position,
+                                vector.magnitude * scale * 1.2,
+                                getVectorColor(vector)
+                            );
+                            vectorObject = arrowHelper;
+                            vectorObject.setLength(1.5 * scale * vector.magnitude, 0.2 * scale, 0.1 * scale);
+                            break;
+                            
+                        case 'lines':
+                            // Create line for each vector
+                            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                                vector.position,
+                                vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
+                            ]);
+                            const lineMaterial = new THREE.LineBasicMaterial({
+                                color: getVectorColor(vector),
+                                linewidth: 2
+                            });
+                            vectorObject = new THREE.Line(lineGeometry, lineMaterial);
+                            break;
+                            
+                        case 'tubes':
+                            // Create tube for each vector
+                            const tubeGeometry = new THREE.CylinderGeometry(
+                                0.05 * scale, 0.15 * scale, 1.5 * scale, 12
+                            );
+                            const tubeMaterial = new THREE.MeshStandardMaterial({
+                                color: getVectorColor(vector),
+                                roughness: 0.8,
+                                metalness: 0.2
+                            });
+                            vectorObject = new THREE.Mesh(tubeGeometry, tubeMaterial);
+                            
+                            // Position and orient the tube
+                            vectorObject.position.copy(vector.position);
+                            vectorObject.position.add(vector.direction.clone().multiplyScalar(0.75 * scale));
+                            
+                            const quaternion = new THREE.Quaternion();
+                            quaternion.setFromUnitVectors(
+                                new THREE.Vector3(0, 1, 0),
+                                vector.direction.clone().normalize()
+                            );
+                            vectorObject.setRotationFromQuaternion(quaternion);
+                            break;
+                    }
+                    
+                    scene.add(vectorObject);
+                    vectorObjects.push(vectorObject);
+                });
+            }
+
         }
         
         // Update existing vector objects
         function updateVectorObjects() {
-            const scale = settings.vectorScale;
-            
-            vectorField.forEach((vector, index) => {
-                const vectorObject = vectorObjects[index];
+
+            if (present_PVF == true){
+                const scale = settings.vectorScale;
                 
-                // Update color
-                if (vectorObject.material) {
-                    if (vectorObject.material.color) {
-                        vectorObject.material.color.set(getVectorColor(vector));
+                vectorField.forEach((vector, index) => {
+                    const vectorObject = vectorObjects[index];
+                    
+                    // Update color
+                    if (vectorObject.material) {
+                        if (vectorObject.material.color) {
+                            vectorObject.material.color.set(getVectorColor(vector));
+                        }
+                    } else if (vectorObject.setColor) {
+                        vectorObject.setColor(getVectorColor(vector));
                     }
-                } else if (vectorObject.setColor) {
-                    vectorObject.setColor(getVectorColor(vector));
-                }
-                
-                // Update scale and position based on display type
-                length 
-                switch (settings.vectorDisplay) {
-                    case 'arrows':
-                        vectorObject.setLength(1.5 * scale * vector.magnitude, 0.2 * scale, 0.1 * scale);
-                        break;
-                        
-                    case 'lines':
-                        vectorObject.geometry.setFromPoints([
-                            vector.position,
-                            vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
-                        ]);
-                        break;
-                        
-                    case 'tubes':
-                        vectorObject.scale.set(1, 1.5 * scale, 1);
-                        vectorObject.position.copy(vector.position);
-                        vectorObject.position.add(vector.direction.clone().multiplyScalar(0.75 * scale));
-                        break;
-                }
-            });
+                    
+                    // Update scale and position based on display type
+                    length 
+                    switch (settings.vectorDisplay) {
+                        case 'arrows':
+                            vectorObject.setLength(1.5 * scale * vector.magnitude, 0.2 * scale, 0.1 * scale);
+                            break;
+                            
+                        case 'lines':
+                            vectorObject.geometry.setFromPoints([
+                                vector.position,
+                                vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
+                            ]);
+                            break;
+                            
+                        case 'tubes':
+                            vectorObject.scale.set(1, 1.5 * scale, 1);
+                            vectorObject.position.copy(vector.position);
+                            vectorObject.position.add(vector.direction.clone().multiplyScalar(0.75 * scale));
+                            break;
+                    }
+                });
+            }else{
+                removeVectorObjects()
+            }
+
         }
         
         // Remove vector objects from the scene
@@ -1384,96 +1417,99 @@
 
             // clear streamlines from previous frame
             removeStreamlines();
-            streamlinesGroup = new THREE.Group();
-            streamlinesGroup.name = 'PVFstreamlines';
-            scene.add(streamlinesGroup);
+            if (present_streamlines == true){
+                streamlinesGroup = new THREE.Group();
+                streamlinesGroup.name = 'PVFstreamlines';
+                scene.add(streamlinesGroup);
 
-            // 颜色定义：起始红色，结束蓝色
-            // const startColor = new THREE.Color(0xff0000); // 红色
-            // const endColor = new THREE.Color(0x0000ff);   // 蓝色
+                // 颜色定义：起始红色，结束蓝色
+                // const startColor = new THREE.Color(0xff0000); // 红色
+                // const endColor = new THREE.Color(0x0000ff);   // 蓝色
 
-            const startColor = new THREE.Color(0xff0000);    // 红
-            const midColor = new THREE.Color(0xffffff);  // 白
-            const endColor = new THREE.Color(0x0000ff);   // 蓝
+                const startColor = new THREE.Color(0xff0000);    // 红
+                const midColor = new THREE.Color(0xffffff);  // 白
+                const endColor = new THREE.Color(0x0000ff);   // 蓝
 
-            num_streamlines = PVF_streamlines.length;
-            showError(`Number of streamlines: ${num_streamlines}`)
+                num_streamlines = PVF_streamlines.length;
+                showError(`Number of streamlines: ${num_streamlines}`)
 
-            
-            for (i=0; i < num_streamlines; i++){
-                // 1. 计算流线轨迹（使用RK4数值积分）
-                const streamline_points = PVF_streamlines[i];
-
-                const points = [];
-                for (j=0; j < streamline_points.length; j++){
-                    points.push(new THREE.Vector3(streamline_points[j][0], streamline_points[j][1], streamline_points[j][2]));
-                }
-                // 跳过太短的流线
-                if (points.length < minStreamlinePointNum) continue;
-                if (points.length >= maxStreamlinePointNum) continue;
-                // 2. 创建流线的可视化对象
-                const curve = new THREE.CatmullRomCurve3(points);
                 
-                // 创建管状几何体
-                const geometry = new THREE.TubeGeometry(
-                    curve,
-                    60,  // 沿曲线的分段数
-                    streamlineWidth,  // 管半径
-                    8,   // 横截面分段数
-                    false  // 不闭合
-                );
+                for (i=0; i < num_streamlines; i++){
+                    // 1. 计算流线轨迹（使用RK4数值积分）
+                    const streamline_points = PVF_streamlines[i];
 
-                // 为每个顶点设置颜色（从红到蓝渐变）
-                const colors = [];
-                for (let i = 0; i < geometry.attributes.position.count; i++) {
-                    // 计算沿流线的比例（0到1）
-                    const t = i / (geometry.attributes.position.count - 1);
-                    // 颜色插值
-                    // const color = startColor.clone().lerp(endColor, t);
-                    const color = t < 0.5 ? 
-                                      startColor.clone().lerp(midColor, t * 2) : 
-                                      midColor.clone().lerp(endColor, (t - 0.5) * 2);
-                    colors.push(color.r, color.g, color.b);
-                }
+                    const points = [];
+                    for (j=0; j < streamline_points.length; j++){
+                        points.push(new THREE.Vector3(streamline_points[j][0], streamline_points[j][1], streamline_points[j][2]));
+                    }
+                    // 跳过太短的流线
+                    if (points.length < minStreamlinePointNum) continue;
+                    if (points.length >= maxStreamlinePointNum) continue;
+                    // 2. 创建流线的可视化对象
+                    const curve = new THREE.CatmullRomCurve3(points);
+                    
+                    // 创建管状几何体
+                    const geometry = new THREE.TubeGeometry(
+                        curve,
+                        60,  // 沿曲线的分段数
+                        streamlineWidth,  // 管半径
+                        8,   // 横截面分段数
+                        false  // 不闭合
+                    );
 
-                // 设置颜色属性
-                geometry.setAttribute(
-                    'color',
-                    new THREE.BufferAttribute(new Float32Array(colors), 3)
-                );
+                    // 为每个顶点设置颜色（从红到蓝渐变）
+                    const colors = [];
+                    for (let i = 0; i < geometry.attributes.position.count; i++) {
+                        // 计算沿流线的比例（0到1）
+                        const t = i / (geometry.attributes.position.count - 1);
+                        // 颜色插值
+                        // const color = startColor.clone().lerp(endColor, t);
+                        const color = t < 0.5 ? 
+                                        startColor.clone().lerp(midColor, t * 2) : 
+                                        midColor.clone().lerp(endColor, (t - 0.5) * 2);
+                        colors.push(color.r, color.g, color.b);
+                    }
 
-                // 创建材质
-                const material = new THREE.MeshBasicMaterial({
-                    vertexColors: THREE.VertexColors,  // 使用顶点颜色
-                    side: THREE.DoubleSide,
-                    transparent: false,
-                    // opacity: 0.85,
-                    lights: false,
+                    // 设置颜色属性
+                    geometry.setAttribute(
+                        'color',
+                        new THREE.BufferAttribute(new Float32Array(colors), 3)
+                    );
+
+                    // 创建材质
+                    const material = new THREE.MeshBasicMaterial({
+                        vertexColors: THREE.VertexColors,  // 使用顶点颜色
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.3,
+                        lights: false,
+                    });
+
+                    // const mergedGeometry = BufferGeometryUtils.mergeBufferGeometries(geometry);
+
+                    // 创建网格并返回
+                    const streamline = new THREE.Mesh(geometry, material);
+                    // const streamline = new THREE.Mesh(mergedGeometry, material);
+                    streamlinesGroup.add(streamline);
+                };
+
+                // 4. 渲染循环
+                // function animate() {
+                //     requestAnimationFrame(animate);
+                //     controls.update();
+                //     renderer.render(scene, camera);
+                // }
+                // animate();
+                // 窗口大小适配
+                window.addEventListener('resize', () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
                 });
+            }
 
-                // const mergedGeometry = BufferGeometryUtils.mergeBufferGeometries(geometry);
-
-                // 创建网格并返回
-                const streamline = new THREE.Mesh(geometry, material);
-                // const streamline = new THREE.Mesh(mergedGeometry, material);
-                streamlinesGroup.add(streamline);
-            };
-
-            // 4. 渲染循环
-            // function animate() {
-            //     requestAnimationFrame(animate);
-            //     controls.update();
-            //     renderer.render(scene, camera);
-            // }
-            // animate();
-            // 窗口大小适配
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
             // showError("Streamlines created successfully.");
-            present_streamlines = true;
+            // present_streamlines = true;
         };
 
         // 加载subject列表
