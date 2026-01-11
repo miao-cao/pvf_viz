@@ -429,4 +429,6 @@ async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
     
 
 if __name__ == "__main__":
-    uvicorn.run("3dpvf_server:app", host="127.0.0.1", port=3000, reload=True)
+    host_ip   = "127.0.0.1"
+    host_port = 4000
+    uvicorn.run("3dpvf_server:app", host=host_ip, port=host_port, reload=True)

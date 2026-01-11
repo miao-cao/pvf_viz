@@ -14,7 +14,6 @@
     <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
     <script src="wx/js/brain-loader.js"></script> 
     <script src="wx/js/brain-surface-viewer.js"></script>
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"> -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script>
@@ -204,7 +203,15 @@
                     </h2>
                     
                     <div class="space-y-4">
-
+                        <label class="block text-sm font-medium text-light/80 mb-4">Streamline parameters</label>
+                        <div class="flex items-center">
+                            <label for="minPointNum">Min point number:</label>    
+                            <input type="number" id="minPointNum" name="numInput", style="color: black; padding: 6px; border: 1px solid #ccc;", min="0", max="50", value="2", step="1">
+                        </div>
+                        <div class="flex items-center">
+                            <label for="maxPointNum">Max point number:</label>    
+                            <input type="number" id="maxPointNum" name="numInput", style="color: black; padding: 6px; border: 1px solid #ccc;", min="5", max="150", value="15", step="1">
+                        </div>
                         <label class="block text-sm font-medium text-light/80 mb-4">Show Streamlines</label>
                         <div class="flex items-center">
                             <button id="present-streamlines" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="createStreamlines()">
@@ -402,6 +409,8 @@
 
         // brainbrowser viewer
         // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
+        let server_ip   = "localhost"
+        let server_port = 4000
         
         // PVF variables
         let subject_ID          = "";
@@ -416,12 +425,14 @@
         let PVF_pattern_data    = []; // Changed to array to hold current list of singularities
         
 
-        let volume_size         = 50;       // where brain, vectors and streamlines reside
-        let streamlineWidth     = 0.1;      // 0.025 streamline tube width
-        let streamlinesGroup    = new THREE.Group();
-        let singularitiesGroup  = new THREE.Group(); // Group for singularities
-        let present_PVF         = false;
-        let present_streamlines = false;
+        let volume_size           = 50;       // where brain, vectors and streamlines reside
+        let streamlineWidth       = 0.1;      // 0.025 streamline tube width
+        let streamlinesGroup      = new THREE.Group();
+        let singularitiesGroup    = new THREE.Group(); // Group for singularities
+        let present_PVF           = false;
+        let present_streamlines   = false;
+        let minStreamlinePointNum = 2
+        let maxStreamlinePointNum = 15
 
 
         let brainSurfaces = {
@@ -703,6 +714,15 @@
                 createSingularities(); // Redraw with new scale
             });
 
+            document.getElementById('minPointNum').addEventListener('input', (e) => {
+                minStreamlinePointNum = parseFloat(e.target.value);
+                // console.log(minStreamlinePointNum);
+            });
+            document.getElementById('maxPointNum').addEventListener('input', (e) => {
+                maxStreamlinePointNum = parseFloat(e.target.value);
+                //  console.log(maxStreamlinePointNum);
+            });
+
             document.getElementById('time-slider').addEventListener('change', (e) => {
                 current_timepoint               = e.target.value;
                 const times_currenttime = PVF_times[current_timepoint];
@@ -777,7 +797,7 @@
             // loadingIndicator.classList.remove('hidden', 'opacity-0');
             subject = folderSelect.value;
             file = fileSelect.value;
-            const response = await fetch(`http://localhost:3000/api/update-PVF-streamlines?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${current_timepoint}`);
+            const response = await fetch(`http://${server_ip}:${server_port}/api/update-PVF-streamlines?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${current_timepoint}`);
                 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
@@ -906,8 +926,7 @@
                 loadingIndicator.classList.remove('hidden', 'opacity-0');
                 
                 // 调用API获取表面文件路径
-                // const response = await fetch(`http://localhost:3000/api/get-brain-surfaces?subject=${encodeURIComponent(subject)}`);
-                const response = await fetch(`http://localhost:3000/api/get-brain-surfaces-obj?subject=${encodeURIComponent(subject)}`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-surfaces-obj?subject=${encodeURIComponent(subject)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to get brain surfaces (${response.status})`);
@@ -1390,8 +1409,8 @@
                     points.push(new THREE.Vector3(streamline_points[j][0], streamline_points[j][1], streamline_points[j][2]));
                 }
                 // 跳过太短的流线
-                // if (points.length < 2) continue;
-                if (points.length > 5) continue;
+                if (points.length < minStreamlinePointNum) continue;
+                if (points.length >= maxStreamlinePointNum) continue;
                 // 2. 创建流线的可视化对象
                 const curve = new THREE.CatmullRomCurve3(points);
                 
@@ -1465,7 +1484,7 @@
                 hideError();
                 
                 // 调用API获取文件夹列表
-                const response = await fetch(`http://localhost:3000/api/list-subjects`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects`);
                 
                 
                 if (!response.ok) {
@@ -1513,7 +1532,7 @@
                 hideError();
                 
                 // 调用API获取文件夹列表
-                const response = await fetch(`http://localhost:3000/api/list-subjects-files?subject=${encodeURIComponent(subject)}`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects-files?subject=${encodeURIComponent(subject)}`);
                 
                 
                 if (!response.ok) {
@@ -1585,7 +1604,7 @@
             loadingIndicator.classList.remove('hidden', 'opacity-0');
             subject = folderSelect.value;
             file    = fileSelect.value;
-            const response = await fetch(`http://localhost:3000/api/load-subjects-files?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-subjects-files?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
                 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
