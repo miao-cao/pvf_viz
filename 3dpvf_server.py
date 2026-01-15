@@ -429,6 +429,34 @@ async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
     
 
 if __name__ == "__main__":
-    host_ip   = "127.0.0.1"
-    host_port = 4000
+    import argparse
+    parser = argparse.ArgumentParser(description="server ip address and port number")
+    
+    # add IP address（-i/--ip，required=False）
+    parser.add_argument(
+        "-i", "--ip",
+        type     = str,
+        default  = "127.0.0.1",
+        help     = "server IP address, default: 127.0.0.1",
+        required = False,
+    )
+    
+    # add port number parameter（-p/--port，type=int ）
+    parser.add_argument(
+        "-p", "--port",
+        type     = int,
+        default  = 32123,
+        help     = "Server port number (1024-65535), default:32123",
+        required = False,
+    )
+    
+    # parse input parameters
+    args = parser.parse_args()
+    
+    # validate port number
+    if not (1024 <= args.port <= 65535):
+        raise ValueError("port number must be between 1024 and 65535")
+    
+    host_ip   = args.ip
+    host_port = args.port
     uvicorn.run("3dpvf_server:app", host=host_ip, port=host_port, reload=True)
