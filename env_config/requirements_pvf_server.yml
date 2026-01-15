@@ -1,0 +1,25 @@
+name: base
+channels:
+- conda-forge
+- defaults
+dependencies:
+- python
+- numpy
+- mne
+- mne-bids
+- hdf5storage
+- fastapi
+- uvicorn
+- pip
+
+
+- pip:
+  - tabulate
+  - pyyaml
+  - easydict
+  - asyncio
+  - aiofiles
+
+
+
+# conda env create -n pvf_server -f requirements_pvf_server.yml
