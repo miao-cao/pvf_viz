@@ -286,7 +286,7 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global pvf_times, vol_src
     
     subject_id            = subject_name
-    metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"
+    metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
     pvf_metadata_fname    = file_name
     vx_path               = metadata_path.replace("_metadata.json", "_Vx.json")
     vy_path               = metadata_path.replace("_metadata.json", "_Vy.json")
