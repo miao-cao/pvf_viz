@@ -18,7 +18,7 @@ import aiofiles
 
 app = FastAPI()
 
-# 允许跨域请求
+# allow cross domain requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = ["*"],
@@ -26,6 +26,12 @@ app.add_middleware(
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
+
+
+# Subjects' PVF data loaded to memory
+MAX_NUM_SUBJECTS_ALLOWED_LOAD = 2       # this number is restricted by max RAM size allowed by server process.
+subjects_loaded_pvf_data      = []
+subject_list_index_dict       = dict()
 
 # PVF metadata
 subject_id          : str            = ""
@@ -60,7 +66,7 @@ pvf_streamlines_time_windows   : Dict[str, Any] = {}
 pvf_streamline_all_time_windows: Dict[str, Any] = {}
 pvf_streamlines_tmin           : int            = 0
 pvf_streamlines_tmax           : int            = 4
-downsample_factor              : int            = 4
+downsample_factor              : int            = 1
 
 # PVF data directories
 PVF_SUBJECTS_DIR = f"{Path(__file__).parent}/pvf_data/pvf_subjects"
@@ -276,6 +282,30 @@ async def load_streamlines_all_time_windows():
     print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
 
 
+
+async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
+    global subject_list_index_dict, subjects_loaded_pvf_data
+
+    subject_list_index = len(subjects_loaded_pvf_data)
+    
+
+    if subject_name not in subject_list_index_dict and subject_list_index < MAX_NUM_SUBJECTS_ALLOWED_LOAD:
+        subject_pvf_data = read_subject_pvf_json(subject_name=subject_name, file_name=file_name)
+        subjects_loaded_pvf_data.append(subject_pvf_data)
+        subject_list_index_dict[subject_name] = subject_list_index
+    elif subject_name not in subject_list_index_dict and subject_list_index == MAX_NUM_SUBJECTS_ALLOWED_LOAD:
+        subjects_loaded_pvf_data.pop(0)
+        subject_list_index_dict.pop(subject_name)
+        subject_pvf_data = read_subject_pvf_json(subject_name=subject_name, file_name=file_name)
+        subjects_loaded_pvf_data.append(subject_pvf_data)
+        subject_list_index_dict[subject_name] = subject_list_index - 1
+
+
+async def read_subject_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
+    subject_pvf_data = dict()
+    return subject_pvf_data
+
+
 # respond to read PVF JSON files
 async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     """Read PVF JSON files"""
@@ -284,6 +314,8 @@ async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global pvf_streamline_folder, pvf_streamlines_time_windows, pvf_num_time_points
     global pvf_dimension, pvf_mask_volume, pvf_streamline_all_time_windows
     global pvf_times, vol_src
+    global subject_list_index_dict, subjects_loaded_pvf_data
+
     
     subject_id            = subject_name
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
