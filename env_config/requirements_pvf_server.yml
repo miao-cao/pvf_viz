@@ -8,8 +8,6 @@ dependencies:
 - mne
 - mne-bids
 - hdf5storage
-- fastapi
-- uvicorn
 - pip
 
 
@@ -17,9 +15,9 @@ dependencies:
   - tabulate
   - pyyaml
   - easydict
+  - fastapi
+  - uvicorn
   - asyncio
   - aiofiles
-
-
 
 # conda env create -n pvf_server -f requirements_pvf_server.yml
