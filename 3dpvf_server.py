@@ -86,7 +86,7 @@ async def list_subjects_pvf_files(subject: str = Query(None)):
     list all _metadata.json files for a given subject.
     """
     subject_id  = subject
-    subject_dir = f"{PVF_SUBJECTS_DIR}/{subject_id}"
+    subject_dir = f"{PVF_SUBJECTS_DIR}/{subject_id}/PVF"
     fname_list  = []
     if os.path.exists(subject_dir) == False:
         return fname_list
