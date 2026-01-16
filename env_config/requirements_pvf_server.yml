@@ -1,4 +1,4 @@
-name: base
+name: pvf_server
 channels:
 - conda-forge
 - defaults
@@ -6,8 +6,8 @@ dependencies:
 - python
 - numpy
 - mne
-- mne-bids
-- hdf5storage
+# - mne-bids
+# - hdf5storage
 - pip
 
 
