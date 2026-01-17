@@ -33,9 +33,40 @@ MAX_NUM_SUBJECTS_ALLOWED_LOAD = 2       # this number is restricted by max RAM s
 subjects_loaded_pvf_data      = dict()
 subject_list_index_dict       = []
 
+# PVF metadata
+subject_id          : str            = ""
+pvf_metadata_fname  : str            = ""
+pvf_metadata        : Dict[str, Any] = {}
+pvf_num_time_points: int             = 0
+pvf_times           : List[float]    = []
+pvf_dimension       : int            = 50
+
+
+# PVF data
+pvf_mask_volume = []
+pvf_vx          = []
+pvf_vy          = []
+pvf_vz          = []
+
+# Volume source space
+vol_src = None
+
+
+# PVF condition numbers
+pvf_condA_fname: str            = ""
+pvf_condA_data : Dict[str, Any] = {}
+
+# PVF pattern detection
+pvf_pattern_fname: str            = ""
+pvf_pattern_data : Dict[str, Any] = {}
 
 # PVF streamlines
-STREAMLINES_DOWNSAMPLE_FACTOR   : int = 4 # keep this as 4 - important - 20260117
+pvf_streamline_folder          : str            = ""
+pvf_streamlines_time_windows   : Dict[str, Any] = {}
+pvf_streamline_all_time_windows: Dict[str, Any] = {}
+# pvf_streamlines_tmin           : int            = 0
+# pvf_streamlines_tmax           : int            = 4
+downsample_factor              : int            = 4 # keep this as 4 - important - 20260117
 
 # PVF data directories
 PVF_SUBJECTS_DIR = f"{Path(__file__).parent}/pvf_data/pvf_subjects"
@@ -74,23 +105,44 @@ async def list_subjects_pvf_files(subject: str = Query(None)):
 @app.get("/api/load-subjects-files")
 async def load_subjects_files(
                             subject         : str             = Query(None),
-                            file            : str             = Query(None),):
-    load_subject_json_files(subject_name=subject, file_name=file)
-    resp_pvf_json(subject_name=subject, file_name=file, timepoint=0)
+                            file            : str             = Query(None),
+                            background_tasks: BackgroundTasks = None):
+    
+    global subject_id, pvf_metadata_fname
+    
+    print(f"Current subject: {subject_id}, file: {pvf_metadata_fname}")
+    
+    if subject_id == subject and pvf_metadata_fname == file:
+        data = await resp_pvf_json(0)
+        return data
+    elif subject and file:
+        print(f"Loading subject: {subject}, file: {file}")
+        
+        # using background task to load all streamlines
+        
+        
+        data = await read_pvf_json(subject, file)
 
+        # background_tasks.add_task(load_streamlines_all_time_windows)
+        task = asyncio.create_task(load_streamlines_all_time_windows())
+        return data
+    else:
+        return {"message": "No data found."}
 
-@app.get("/api/load-modes")
-async def load_subject_file_modes(                            
-                            subject         : str             = Query(None),
-                            file            : str             = Query(None),):
-    data = await process_modes(subject_name=subject, file_name=file)
-    return data
 
 @app.get("/api/update-PVF-streamlines")
 async def update_pvf_streamlines(subject: str = Query(None), file: str = Query(None), timepoint: str = Query(None)):
     """更新特定时间点的流线数据"""
-    data = await update_pvf_streamlines_data(subject_name=subject, file_name=file, timepoint=timepoint)
-    return data
+    global subject_id, pvf_metadata_fname
+    
+    if subject_id == subject and pvf_metadata_fname == file and timepoint:
+        print(f"Updating PVF streamlines at timepoint: {timepoint}")
+        data = await update_pvf_streamlines_data(timepoint)
+        return data
+    else:
+        print("Subject or meta file mismatch when updating streamlines.")
+        return {"message": "Subject or file mismatch"}
+
 
 @app.get("/api/get-brain-surfaces")
 async def get_brain_surfaces(subject: str = Query(None)):
@@ -109,6 +161,7 @@ async def get_brain_surfaces(subject: str = Query(None)):
         "rh_surface": f"pvf_data/fs_subjects/{subject}/surf/rh.pial.obj" if rh_exists else None,
         "subject": subject
     }
+
 
 @app.get("/api/get-brain-surfaces-obj")
 async def get_brain_surfaces_obj(subject: str = Query(None)):
@@ -130,23 +183,18 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
 
 # app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
-# ------ new functions to load more subjects --------------
-def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_id: int) -> Dict[str, Any]:
+# functions to process PVF data
+def process_pvf_time_window(pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
-    global subjects_loaded_pvf_data
+    global pvf_vx, pvf_vy, pvf_vz, pvf_num_time_points, pvf_mask_volume, pvf_metadata, vol_src
+    print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {pvf_num_time_points}")
 
-    file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
-    print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {file_pvf_data["PVF_num_time_points"]}")
-
-    file_pvf_data   = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
-    mask_volume     = subjects_loaded_pvf_data[subject_name]['volume_mask']
-    vol_src         = subjects_loaded_pvf_data[subject_name]['vol_src']
-    volume_vert_ind = subjects_loaded_pvf_data[subject_name]['volume_vertex_index']
+    mask_volume     = pvf_mask_volume
+    vx              = np.squeeze(pvf_vx[pvf_time_window_id, :, :, :]) # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
+    vy              = np.squeeze(pvf_vy[pvf_time_window_id, :, :, :]) # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
+    vz              = np.squeeze(pvf_vz[pvf_time_window_id, :, :, :]) # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
+    volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
     vert_no         = volume_vert_ind[mask_volume]
-    vx              = np.squeeze(file_pvf_data["Vx"][pvf_time_window_id, :, :, :])     # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
-    vy              = np.squeeze(file_pvf_data["Vy"][pvf_time_window_id, :, :, :])     # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
-    vz              = np.squeeze(file_pvf_data["Vz"][pvf_time_window_id, :, :, :])     # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
-    
 
     # obtain positions in mm from volume source space
     positions  = np.zeros((np.sum(mask_volume), 3))
@@ -164,6 +212,7 @@ def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_i
 
     # positions_2 = np.zeros((np.sum(mask_volume), 3))
     if vol_src is not None:
+        volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
         vert_no         = volume_vert_ind[mask_volume]
         positions = vol_src[0]['rr'][vert_no] * 1000
         # positions_2 = vol_src[0]['rr'][vert_no] * 1000
@@ -181,74 +230,57 @@ def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_i
     directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
     directions = directions / directions_norm_max
 
+    
     return {"positions": positions, "directions": directions}
 
-def process_modes(subject_name: str, file_name: str) -> Dict[str, Any]:
-    """处理特定时间窗口的PVF数据"""
-    global subjects_loaded_pvf_data
-    print(f"Processing modes for {subject_name}'s {file_name}")
 
-    file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
+# downsample streamlines for faster rendering
+def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]:
+    """Downsample streamlines by a given factor"""
+    downsampled_streamlines = []
+    for sl in streamlines:
+        downsampled_sl = sl[::factor]
+        downsampled_streamlines.append(downsampled_sl)
+    return downsampled_streamlines
 
-    mask_volume     = subjects_loaded_pvf_data[subject_name]['vol_src']
-    volume_vert_ind = subjects_loaded_pvf_data[subject_name]['volume_vertex_index']
-    resp_data = {}
-    for mode_ind in range(file_pvf_data['modes'].shape[0]):
-        vx              = np.squeeze(file_pvf_data["modes"][mode_ind, 0, :, :, :]) # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
-        vy              = np.squeeze(file_pvf_data["modes"][mode_ind, 1, :, :, :]) # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
-        vz              = np.squeeze(file_pvf_data["modes"][mode_ind, 2, :, :, :]) # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
-        vert_no         = volume_vert_ind[mask_volume]
 
-        # obtain positions in mm from volume source space
-        positions  = np.zeros((np.sum(mask_volume), 3))
-        directions = np.zeros((np.sum(mask_volume), 3))
-
-        # id_serial = 0
-        # for idz in range(vx.shape[0]):
-        #     for idy in range(vx.shape[1]):
-        #         for idx in range(vx.shape[2]):
-        #             if mask_volume[idz, idy, idx]:
-        #                 vert_index               = volume_vert_ind[idz, idy, idx]
-        #                 positions[id_serial, :]  = vol_src[0]['rr'][vert_index] * 1000
-        #                 directions[id_serial,:]  = [vx[idz, idy, idx], vy[idz, idy, idx], vz[idz, idy, idx]]
-        #                 id_serial               += 1
-
-        # positions_2 = np.zeros((np.sum(mask_volume), 3))
-        if vol_src is not None:
-            volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
-            vert_no         = volume_vert_ind[mask_volume]
-            positions = vol_src[0]['rr'][vert_no] * 1000
-            # positions_2 = vol_src[0]['rr'][vert_no] * 1000
-        else:
-            positions = np.zeros((np.sum(mask_volume), 3))
-            # positions_2 = vol_src[0]['rr'][vert_no] * 1000
-
-        # u, v, w = vx[mask_volume] * -1, vy[mask_volume] * -1, vz[mask_volume] * -1
-        u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
-        directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T # should not swap x and y
-        # directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
-        # directions_2 = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
-
-        # normalise directions
-        directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
-        directions = directions / directions_norm_max
-        resp_data[str(mode_ind)] = {"variance": "", "positions": positions, "directions": directions}
-
-    return resp_data
-
-def process_streamlines_time_window(subject_name: str, file_name: str, pvf_time_window_id: int) -> List[Any]:
+def process_streamlines_time_window(pvf_time_window_id: int) -> List[Any]:
     """处理特定时间窗口的流线数据"""
-    global subjects_loaded_pvf_data, STREAMLINES_DOWNSAMPLE_FACTOR
-    
-    pvf_streamline_all_time_windows = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]['streamlines_time_windows']
 
+    global pvf_streamline_all_time_windows, downsample_factor
+    
     new_streamlines = []
     if len(pvf_streamline_all_time_windows) != 0:
         streamlines = pvf_streamline_all_time_windows[str(pvf_time_window_id)]
-        new_streamlines = downsample_streamlines(streamlines, factor=STREAMLINES_DOWNSAMPLE_FACTOR)
+        new_streamlines = downsample_streamlines(streamlines, factor=downsample_factor)
 
     print(f"Processed {len(new_streamlines)} streamlines at time point: {pvf_time_window_id}")
     return new_streamlines
+
+
+# async functions to read all streamlines data
+async def load_streamlines_all_time_windows():
+    """loading all streamlines from folder in background"""
+    global pvf_streamline_all_time_windows, pvf_streamline_folder
+    print(f"Background loading streamlines of all time windows from folder: {pvf_streamline_folder}")
+    
+    streamline_files = [
+        f for f in os.listdir(pvf_streamline_folder)
+        if os.path.isfile(os.path.join(pvf_streamline_folder, f)) and f.endswith(".json")
+    ]
+    
+    for file in streamline_files:
+        print(f"Loading streamlines from: {file}")
+        file_path = os.path.join(pvf_streamline_folder, file)
+        async with aiofiles.open(file_path, "r", encoding="utf8") as f:
+            content = await f.read()  # 异步读取全部内容
+            streamlines_time_windows = json.loads(content)  # 解析 JSON
+            # streamlines_time_windows = json.load(f)
+            for timepoint, streamlines in streamlines_time_windows.items():
+                pvf_streamline_all_time_windows[timepoint] = streamlines
+    
+    print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
+
 
 async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subject_list_index_dict, subjects_loaded_pvf_data
@@ -267,7 +299,7 @@ async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str
         subjects_loaded_pvf_data[subject_name] = subject_pvf_data
         subject_list_index_dict.append(subject_name)
     elif subject_name in subjects_loaded_pvf_data and file_name not in subjects_loaded_pvf_data['meta_files']:
-        subjects_loaded_pvf_data[subject_name]['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
+        subjects_loaded_pvf_data[subject_name]['meta_files'][file_name] = read_file_pvf_data()
 
 async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any]:
 
@@ -287,6 +319,7 @@ async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any
     try:
         with open(metadata_path, "r", encoding="utf8") as f:
             pvf_metadata                         = json.load(f)
+            pvf_mask_volume                      = np.asarray(pvf_metadata['volume_mask'])
             file_pvf_data["subject_ID"]          = subject_name
             file_pvf_data["times"]               = pvf_metadata['times']    
             file_pvf_data["PVF_num_time_points"] = len(pvf_metadata['times'])
@@ -302,7 +335,7 @@ async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any
         with open(vx_path, "r", encoding="utf8") as f:
             data_vx                        = json.load(f)
             file_pvf_data["Vx"]            = np.asarray(data_vx["Vx"])
-            pvf_dimension                  = file_pvf_data["Vx"].shape[-1]
+            pvf_dimension                  = pvf_vx.shape[-1]
             file_pvf_data["PVF_dimension"] = pvf_dimension
             print(f"PVF dimensions: {pvf_dimension}")
             print(f"Successfully loaded Vx: {vx_path}")
@@ -361,115 +394,186 @@ async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any
     except Exception as e:
         print(f"Failed with errors: {e}")
     
-    task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
+    # # 处理默认时间点数据
+    # default_first_timepoint          = 0
+    # pvf_data                         = process_pvf_time_window(default_first_timepoint)
+    # streamlines                      = process_streamlines_time_window(default_first_timepoint)
+    # resp_value["pvf_positions"]      = pvf_data["positions"].tolist()
+    # resp_value["pvf_directions"]     = pvf_data["directions"].tolist()
+    # resp_value["condA"]              = sum(pvf_condA_data[str(default_first_timepoint)]) / len(pvf_condA_data[str(default_first_timepoint)])
+    # resp_value["patterns"]           = pvf_pattern_data.get(str(default_first_timepoint), []) 
+    # resp_value["streamlines"]        = streamlines
+    # return resp_value
+
     return file_pvf_data
 
 async def read_subject_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subjects_loaded_pvf_data
-    
     subject_id                                = subject_name
     whole_brain_source_space_fname            = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
     
     subject_pvf_data                          = dict()
     subject_pvf_data['subject_id']            = subject_name
+    subject_pvf_data['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
+    
     subject_pvf_data['vol_src']               = mne.read_source_spaces(whole_brain_source_space_fname)
     print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
-    
-    metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
-    try:
-        with open(metadata_path, "r", encoding="utf8") as f:
-            pvf_metadata                            = json.load(f)
-            subject_pvf_data['volume_mask']         = np.asarray(pvf_metadata['volume_mask'])
-            subject_pvf_data['volume_vertex_index'] = np.asarray(pvf_metadata['volume_vertex_index'])
-            print(f"Successfully loaded: {metadata_path}")
-    except Exception as e:
-        print(f"Failed with errors: {e}")
-
-    subject_pvf_data['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
     return subject_pvf_data
 
-async def update_pvf_streamlines_data(subject_name: str, file_name: str, timepoint: str) -> Dict[str, Any]:
-    """更新特定时间点的流线数据及奇点数据"""
-    global subjects_loaded_pvf_data
 
-    if subject_name in subjects_loaded_pvf_data:
-        if file_name in subjects_loaded_pvf_data[subject_name]['meta_files']:    
-            try:
-                return resp_pvf_json(subject_name=subject_name, file_name=file_name, timepoint=timepoint)
-            except ValueError:
-                return {"message": "Invalid timepoint format"}
-        if file_name not in subjects_loaded_pvf_data[subject_name]['meta_files']:
-            subjects_loaded_pvf_data[subject_name]['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
-            try:
-                return resp_pvf_json(subject_name=subject_name, file_name=file_name, timepoint=timepoint)
-            except ValueError:
-                return {"message": "Invalid timepoint format"}
-    else:
-        load_subject_json_files(subject_name=subject_name, file_name=file_name)
-        try:
-            return resp_pvf_json(subject_name=subject_name, file_name=file_name, timepoint=timepoint)
-        except ValueError:
-            return {"message": "Invalid timepoint format"}
+# respond to read PVF JSON files
+async def read_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
+    """Read PVF JSON files"""
+    global subject_id, pvf_metadata_fname, pvf_metadata, pvf_vx, pvf_vy, pvf_vz
+    global pvf_condA_fname, pvf_condA_data, pvf_pattern_fname, pvf_pattern_data
+    global pvf_streamline_folder, pvf_streamlines_time_windows, pvf_num_time_points
+    global pvf_dimension, pvf_mask_volume, pvf_streamline_all_time_windows
+    global pvf_times, vol_src
 
-# async functions to read all streamlines data
-async def load_streamlines_all_time_windows(subject_name: str, file_name: str):
-    """loading all streamlines from folder in background"""
-    global subjects_loaded_pvf_data
-
+    
+    subject_id            = subject_name
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
+    pvf_metadata_fname    = file_name
+    vx_path               = metadata_path.replace("_metadata.json", "_Vx.json")
+    vy_path               = metadata_path.replace("_metadata.json", "_Vy.json")
+    vz_path               = metadata_path.replace("_metadata.json", "_Vz.json")
+    condA_path            = metadata_path.replace("_metadata.json", "_condA.json")
+    pattern_path          = metadata_path.replace("_metadata.json", "_pattern_detection.json")
     pvf_streamline_folder = str(metadata_path.replace("_metadata.json", "_streamlines"))
-    print(f"In background loading streamlines of all time windows from folder: {pvf_streamline_folder}")
     
-    streamline_files = [
-        f for f in os.listdir(pvf_streamline_folder)
-        if os.path.isfile(os.path.join(pvf_streamline_folder, f)) and f.endswith(".json")
-    ]
+    resp_value: Dict[str, Any] = {}
     
-    for file in streamline_files:
-        print(f"Loading streamlines from: {file}")
-        file_path = os.path.join(pvf_streamline_folder, file)
-        async with aiofiles.open(file_path, "r", encoding="utf8") as f:
-            content = await f.read()  # 异步读取全部内容
-            streamlines_time_windows = json.loads(content)  # 解析 JSON
-            # streamlines_time_windows = json.load(f)
-            for timepoint, streamlines in streamlines_time_windows.items():
-                subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]['streamlines_time_windows'][timepoint] = streamlines
+    # reading meta information and volume source space
     
-    print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
+    whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
+    vol_src                        = mne.read_source_spaces(whole_brain_source_space_fname)
+    print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
 
-# downsample streamlines for faster rendering
-def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]:
-    """Downsample streamlines by a given factor"""
-    downsampled_streamlines = []
-    for sl in streamlines:
-        downsampled_sl = sl[::factor]
-        downsampled_streamlines.append(downsampled_sl)
-    return downsampled_streamlines
+    # vol_src = None
 
-# ------------------------------------------------------
-async def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str, Any]:
+    try:
+        with open(metadata_path, "r", encoding="utf8") as f:
+            pvf_metadata                      = json.load(f)
+            pvf_mask_volume                   = np.asarray(pvf_metadata['volume_mask'])
+            resp_value["subject_ID"]          = subject_name
+            resp_value["times"]               = pvf_metadata['times']
+            resp_value["PVF_num_time_points"] = len(pvf_metadata['times'])
+            pvf_num_time_points               = len(pvf_metadata['times'])
+            pvf_times                         = pvf_metadata['times']
+
+            print(f"Successfully loaded: {metadata_path}")
+            print(f"Number of Timepoints: {pvf_num_time_points}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    # 读取Vx数据
+    try:
+        with open(vx_path, "r", encoding="utf8") as f:
+            data_vx                     = json.load(f)
+            pvf_vx                      = np.asarray(data_vx["Vx"])
+            pvf_num_time_points         = pvf_vx.shape[0]
+            pvf_dimension               = pvf_vx.shape[-1]
+            resp_value["PVF_dimension"] = pvf_dimension
+            # resp_value["PVF_num_time_points"] = pvf_num_time_points
+            print(f"PVF dimensions: {pvf_dimension}")
+            print(f"Successfully loaded Vx: {vx_path}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    # 读取Vy数据
+    try:
+        with open(vy_path, "r", encoding="utf8") as f:
+            data_vy = json.load(f)
+            pvf_vy  = np.asarray(data_vy["Vy"])
+            print(f"Successfully loaded Vy: {vy_path}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    # 读取Vz数据
+    try:
+        with open(vz_path, "r", encoding="utf8") as f:
+            data_vz = json.load(f)
+            pvf_vz  = np.asarray(data_vz["Vz"])
+            print(f"Successfully loaded Vz: {vz_path}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    # 读取条件数数据
+    try:
+        with open(condA_path, "r", encoding="utf8") as f:
+            pvf_condA_data = json.load(f)
+            print(f"Successfully loaded condA: {condA_path}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    try:
+        with open(pattern_path, "r", encoding="utf8") as f:
+            pvf_pattern_data = json.load(f)
+            print(f"Successfully loaded patterns: {pattern_path}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    # 读取流线数据
+    try:
+        first_tw_path = os.path.join(pvf_streamline_folder, "pvf_streamlines_time_window_0_4.json")
+        with open(first_tw_path, "r", encoding="utf8") as f:
+            pvf_streamlines_time_windows = json.load(f)
+            pvf_streamline_all_time_windows = copy.copy(pvf_streamlines_time_windows)
+            print(f"Successfully loaded Streamlines: {pvf_streamline_folder}")
+    except Exception as e:
+        print(f"处理失败: {e}")
+    
+    # 处理默认时间点数据
+    default_first_timepoint          = 0
+    pvf_data                         = process_pvf_time_window(default_first_timepoint)
+    streamlines                      = process_streamlines_time_window(default_first_timepoint)
+    resp_value["pvf_positions"]      = pvf_data["positions"].tolist()
+    resp_value["pvf_directions"]     = pvf_data["directions"].tolist()
+    resp_value["condA"]              = sum(pvf_condA_data[str(default_first_timepoint)]) / len(pvf_condA_data[str(default_first_timepoint)])
+    resp_value["patterns"]           = pvf_pattern_data.get(str(default_first_timepoint), []) 
+    resp_value["streamlines"]        = streamlines
+    
+    return resp_value
+
+
+async def resp_pvf_json(timepoint: int) -> Dict[str, Any]:
     """生成PVF JSON响应"""
-    global subjects_loaded_pvf_data
-
-    file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
-    timepoint_int = int(timepoint)
-    pvf_data      = process_pvf_time_window(subject_name=subject_name, file_name=file_name, pvf_time_window_id=timepoint_int)
-    streamlines   = process_streamlines_time_window(subject_name=subject_name, file_name=file_name, pvf_time_window_id=timepoint_int)
-
+    global subject_id, pvf_dimension, pvf_num_time_points, pvf_condA_data, pvf_pattern_data, pvf_times
+    
+    pvf_data    = process_pvf_time_window(timepoint)
+    streamlines = process_streamlines_time_window(timepoint)
     return {
-        "subject_ID"         : file_pvf_data["subject_ID"],
-        "metadata_fname"     : file_name,
+        "subject_ID"         : subject_id,
         "pvf_positions"      : pvf_data["positions"].tolist(),
         "pvf_directions"     : pvf_data["directions"].tolist(),
-        "times"              : file_pvf_data["times"],
-        "condA"              : sum(file_pvf_data["condA"][timepoint]) / len(file_pvf_data["condA"][timepoint]),
-        "patterns"           : file_pvf_data["pattern_data"].get(timepoint, []),
+        "times"              : pvf_times,
+        "condA"              : sum(pvf_condA_data[str(timepoint)]) / len(pvf_condA_data[str(timepoint)]),
+        "patterns"           : pvf_pattern_data.get(str(timepoint), []),
         "streamlines"        : streamlines,
-        "PVF_dimension"      : file_pvf_data["PVF_dimension"],
-        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"], }
+        "PVF_dimension"      : pvf_dimension,
+        "PVF_num_time_points": pvf_num_time_points,
+    }
 
 
-# start up server
+async def update_pvf_streamlines_data(timepoint: str) -> Dict[str, Any]:
+    """更新特定时间点的流线数据及奇点数据"""
+    global pvf_condA_data, pvf_pattern_data, pvf_times
+    try:
+        timepoint_int = int(timepoint)
+        pvf_data    = process_pvf_time_window(timepoint_int)
+        streamlines = process_streamlines_time_window(timepoint_int)
+        return {
+            "pvf_positions" : pvf_data["positions"].tolist(),
+            "pvf_directions": pvf_data["directions"].tolist(),
+            "times"         : pvf_times,
+            "condA"         : sum(pvf_condA_data[timepoint]) / len(pvf_condA_data[timepoint]),
+            "patterns"      : pvf_pattern_data.get(timepoint, []), 
+            "streamlines"   : streamlines,
+        }
+    except ValueError:
+        return {"message": "Invalid timepoint format"}
+    
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="server ip address and port number")
