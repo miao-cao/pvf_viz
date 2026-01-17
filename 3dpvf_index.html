@@ -591,6 +591,55 @@
             showSingularities: true,
             singularityScale : 1.0
         };
+        class CustomCurve extends THREE.Curve {
+            /**
+             * 构造函数：接收Vector3列表初始化曲线（无任何插值）
+             * @param {THREE.Vector3[]} vector3List - 3D顶点列表（必传，至少2个顶点）
+             */
+            constructor(vector3List) {
+                super(); // 调用父类THREE.Curve3的构造函数
+                
+                // 严格验证输入参数的合法性
+                if (!Array.isArray(vector3List) || vector3List.length < 2) {
+                    throw new Error("CustomCurve：vector3List必须是包含至少2个THREE.Vector3的数组");
+                }
+                if (!vector3List.every(item => item instanceof THREE.Vector3)) {
+                    throw new Error("CustomCurve：vector3List中的所有元素必须是THREE.Vector3实例");
+                }
+                
+                // 深拷贝保存原始Vector3列表，避免外部修改影响曲线内部数据（完全保留原始顶点）
+                this.vector3List = vector3List.map(point => new THREE.Vector3().copy(point));
+                // 原始顶点总数和线段总数（顶点数-1）
+                this.pointCount = this.vector3List.length;
+                this.segmentCount = this.pointCount - 1;
+            }
+
+            /**
+             * 重写核心方法：getPoint(t)，无任何插值，仅映射原始顶点
+             * @param {number} t - 曲线进度，范围[0, 1]
+             * @param {THREE.Vector3} [optionalTarget] - 可选目标向量，减少内存分配
+             * @returns {THREE.Vector3} 对应进度t的原始3D顶点（无任何插值计算）
+             */
+            getPoint(t, optionalTarget = new THREE.Vector3()) {
+                // 1. 确保t的范围严格在[0, 1]之间，避免数组越界
+                t = THREE.MathUtils.clamp(t, 0, 1);
+                
+                // 2. 情况1：t=1（终点），直接返回最后一个原始顶点
+                if (t === 1) {
+                    return optionalTarget.copy(this.vector3List[this.pointCount - 1]);
+                }
+                
+                // 3. 情况2：计算t对应的原始顶点索引（无插值，仅映射）
+                // 每个顶点对应的进度区间：均匀分配[0,1]进度到所有原始顶点
+                const pointIndex = Math.floor(t * this.pointCount);
+                // 安全边界：确保索引不超过最后一个顶点的索引
+                const safePointIndex = Math.min(pointIndex, this.pointCount - 1);
+                
+                // 4. 直接返回对应的原始顶点（无任何插值、无任何过渡计算）
+                // 仅返回原始列表中的顶点，不生成任何新坐标点
+                return optionalTarget.copy(this.vector3List[safePointIndex]);
+            }
+        }
         
         // Initialize the application
         function init() {
@@ -1542,17 +1591,20 @@
                     // 跳过太短的流线
                     if (points.length < minStreamlinePointNum) continue;
                     if (points.length >= maxStreamlinePointNum) continue;
+
                     // 2. 创建流线的可视化对象
-                    const curve = new THREE.CatmullRomCurve3(points);
+                    const curve = new THREE.CatmullRomCurve3(points);  // change this function to see if streamlines change
+                    // const curve = new CustomCurve(points);
                     
                     // 创建管状几何体
                     const geometry = new THREE.TubeGeometry(
-                        curve,
-                        60,  // 沿曲线的分段数
+                        curve, // curve,
+                        80,  // 沿曲线的分段数
                         streamlineWidth,  // 管半径
                         8,   // 横截面分段数
                         false  // 不闭合
                     );
+
 
                     // 为每个顶点设置颜色（从红到蓝渐变）
                     const colors = [];
@@ -1579,7 +1631,7 @@
                         side: THREE.DoubleSide,
                         transparent: true,
                         opacity: 0.3,
-                        lights: false,
+                        // lights: false,
                     });
 
                     // const mergedGeometry = BufferGeometryUtils.mergeBufferGeometries(geometry);
