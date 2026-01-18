@@ -8,7 +8,7 @@ from typing import Dict, List, Any
 import numpy as np
 import mne
 
-from fastapi import FastAPI, Query, BackgroundTasks
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 # from fastapi.staticfiles import StaticFiles
@@ -54,7 +54,6 @@ async def list_subjects():
         subject_id_list = [subject_id for subject_id in os.listdir(PVF_SUBJECTS_DIR) if os.path.isdir(os.path.join(PVF_SUBJECTS_DIR, subject_id))]
         return subject_id_list
 
-
 @app.get("/api/list-subjects-files")
 async def list_subjects_pvf_files(subject: str = Query(None)):
     """
@@ -70,7 +69,6 @@ async def list_subjects_pvf_files(subject: str = Query(None)):
     
     return fname_list
 
-
 @app.get("/api/load-subjects-files")
 async def load_subjects_files(
                             subject         : str             = Query(None),
@@ -78,12 +76,12 @@ async def load_subjects_files(
     load_subject_json_files(subject_name=subject, file_name=file)
     resp_pvf_json(subject_name=subject, file_name=file, timepoint=0)
 
-
 @app.get("/api/load-modes")
 async def load_subject_file_modes(                            
                             subject         : str             = Query(None),
-                            file            : str             = Query(None),):
-    data = await process_modes(subject_name=subject, file_name=file)
+                            file            : str             = Query(None),
+                            mode            : str             = Query(None),):
+    data = await process_modes(subject_name=subject, file_name=file, mode_id=int(mode))
     return data
 
 @app.get("/api/update-PVF-streamlines")
@@ -130,7 +128,7 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
 
 # app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
-# ------ new functions to load more subjects --------------
+# ------ functions to load more subjects --------------
 def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
     global subjects_loaded_pvf_data
@@ -183,59 +181,6 @@ def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_i
 
     return {"positions": positions, "directions": directions}
 
-def process_modes(subject_name: str, file_name: str) -> Dict[str, Any]:
-    """处理特定时间窗口的PVF数据"""
-    global subjects_loaded_pvf_data
-    print(f"Processing modes for {subject_name}'s {file_name}")
-
-    file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
-
-    mask_volume     = subjects_loaded_pvf_data[subject_name]['vol_src']
-    volume_vert_ind = subjects_loaded_pvf_data[subject_name]['volume_vertex_index']
-    resp_data = {}
-    for mode_ind in range(file_pvf_data['modes'].shape[0]):
-        vx              = np.squeeze(file_pvf_data["modes"][mode_ind, 0, :, :, :]) # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
-        vy              = np.squeeze(file_pvf_data["modes"][mode_ind, 1, :, :, :]) # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
-        vz              = np.squeeze(file_pvf_data["modes"][mode_ind, 2, :, :, :]) # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
-        vert_no         = volume_vert_ind[mask_volume]
-
-        # obtain positions in mm from volume source space
-        positions  = np.zeros((np.sum(mask_volume), 3))
-        directions = np.zeros((np.sum(mask_volume), 3))
-
-        # id_serial = 0
-        # for idz in range(vx.shape[0]):
-        #     for idy in range(vx.shape[1]):
-        #         for idx in range(vx.shape[2]):
-        #             if mask_volume[idz, idy, idx]:
-        #                 vert_index               = volume_vert_ind[idz, idy, idx]
-        #                 positions[id_serial, :]  = vol_src[0]['rr'][vert_index] * 1000
-        #                 directions[id_serial,:]  = [vx[idz, idy, idx], vy[idz, idy, idx], vz[idz, idy, idx]]
-        #                 id_serial               += 1
-
-        # positions_2 = np.zeros((np.sum(mask_volume), 3))
-        if vol_src is not None:
-            volume_vert_ind = np.asarray(pvf_metadata['volume_vertex_index'])
-            vert_no         = volume_vert_ind[mask_volume]
-            positions = vol_src[0]['rr'][vert_no] * 1000
-            # positions_2 = vol_src[0]['rr'][vert_no] * 1000
-        else:
-            positions = np.zeros((np.sum(mask_volume), 3))
-            # positions_2 = vol_src[0]['rr'][vert_no] * 1000
-
-        # u, v, w = vx[mask_volume] * -1, vy[mask_volume] * -1, vz[mask_volume] * -1
-        u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
-        directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T # should not swap x and y
-        # directions = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
-        # directions_2 = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
-
-        # normalise directions
-        directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
-        directions = directions / directions_norm_max
-        resp_data[str(mode_ind)] = {"variance": "", "positions": positions, "directions": directions}
-
-    return resp_data
-
 def process_streamlines_time_window(subject_name: str, file_name: str, pvf_time_window_id: int) -> List[Any]:
     """处理特定时间窗口的流线数据"""
     global subjects_loaded_pvf_data, STREAMLINES_DOWNSAMPLE_FACTOR
@@ -249,6 +194,45 @@ def process_streamlines_time_window(subject_name: str, file_name: str, pvf_time_
 
     print(f"Processed {len(new_streamlines)} streamlines at time point: {pvf_time_window_id}")
     return new_streamlines
+
+def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, Any]:
+    """处理特定时间窗口的PVF数据"""
+    global subjects_loaded_pvf_data
+    print(f"Processing modes for {subject_name}'s {file_name}")
+
+    file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
+
+    file_pvf_data   = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
+    mask_volume     = subjects_loaded_pvf_data[subject_name]['volume_mask']
+    vol_src         = subjects_loaded_pvf_data[subject_name]['vol_src']
+    volume_vert_ind = subjects_loaded_pvf_data[subject_name]['volume_vertex_index']
+
+    mode_vel_mat = np.asarray(file_pvf_data["mode_data"]["mode_vel_mat"])
+    vx           = np.squeeze(mode_vel_mat[mode_id, 0, :, :, :])           # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
+    vy           = np.squeeze(mode_vel_mat[mode_id, 1, :, :, :])           # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
+    vz           = np.squeeze(mode_vel_mat[mode_id, 2, :, :, :])           # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
+    vert_no      = volume_vert_ind[mask_volume]
+
+    # obtain positions in mm from volume source space
+    positions  = np.zeros((np.sum(mask_volume), 3))
+    directions = np.zeros((np.sum(mask_volume), 3))
+
+    if vol_src is not None:
+        volume_vert_ind = np.asarray(volume_vert_ind)
+        vert_no         = volume_vert_ind[mask_volume]
+        positions = vol_src[0]['rr'][vert_no] * 1000
+        
+    else:
+        positions = np.zeros((np.sum(mask_volume), 3))
+            
+    u, v, w = vx[mask_volume], vy[mask_volume], vz[mask_volume]
+    directions = np.vstack([u.flatten().T, v.flatten().T, w.flatten().T,]).T # should not swap x and y
+
+    # normalise directions
+    directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
+    directions = directions / directions_norm_max
+    
+    return {"positions": positions, "directions": directions}
 
 async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subject_list_index_dict, subjects_loaded_pvf_data
@@ -347,6 +331,15 @@ async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any
     try:
         with open(mode_path, "r", encoding="utf8") as f:
             file_pvf_data["mode_data"] = json.load(f)
+
+            mode_singular_values = file_pvf_data['mode_data']['singular_values']
+            squared_Sigma        = np.square(mode_singular_values)
+            sum_of_squared_Sigma = np.sum(squared_Sigma)
+            percentages_squared  = (squared_Sigma / sum_of_squared_Sigma) * 100
+            file_pvf_data['mode_info'] = {}
+            for mode in range(len(mode_singular_values)):
+                file_pvf_data['mode_info'][mode] = {'singular_value': float(mode_singular_values[mode]),
+                                                    'percentage': float(percentages_squared[mode])}
             print(f"Successfully loaded patterns: {mode_path}")
     except Exception as e:
         print(f"Failed with errors: {e}")
@@ -447,6 +440,8 @@ def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]
     return downsampled_streamlines
 
 # ------------------------------------------------------
+
+# ------ response of pvf (json) data to api requests --------------
 async def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str, Any]:
     """生成PVF JSON响应"""
     global subjects_loaded_pvf_data
@@ -464,9 +459,10 @@ async def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Di
         "times"              : file_pvf_data["times"],
         "condA"              : sum(file_pvf_data["condA"][timepoint]) / len(file_pvf_data["condA"][timepoint]),
         "patterns"           : file_pvf_data["pattern_data"].get(timepoint, []),
+        "mode_info"          : file_pvf_data['mode_info'],
         "streamlines"        : streamlines,
         "PVF_dimension"      : file_pvf_data["PVF_dimension"],
-        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"], }
+        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"],                                            }
 
 
 # start up server

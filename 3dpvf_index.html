@@ -57,7 +57,7 @@
                 height: calc(100vh - 8rem);
             }
             .sidebar {
-                width: 400px;
+                width: 500px;
                 transition: transform 0.3s ease-in-out;
             }
             .sidebar-collapsed {
@@ -286,14 +286,19 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-3 border-t border-white/10 pt-3">
+                    <div class="mt-3 border-t border-white/20 pt-3">
                         <div>
                             <label class="block text-sm font-medium text-light/80 mb-3">Spatiotemporal modes (PVF mode decomposition)</label>
                             <select id="mode-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 <option value="">Mode 1 Percentage explained:</option>
                             </select>
                         </div>
-
+                        <div class="flex items-center border-t border-white/20 pt-3">
+                            <button id="present-modes" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadModeFields()">
+                                <i class="fas fa-bars"></i>
+                                <span>Present Mode Fields</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -485,6 +490,7 @@
         // DOM elements for File Panel
         const folderSelect       = document.getElementById('subject-select');
         const fileSelect         = document.getElementById('file-select');
+        const modeSelect         = document.getElementById('mode-select');
         const selectedFolderInfo = document.getElementById('selected-folder-info');
         const selectedFolderPath = document.getElementById('selected-folder-path');
         const errorMessage       = document.getElementById('error-message');
@@ -511,18 +517,20 @@
         let PVF_directions      = [];
         let PVF_streamlines     = {};
         let PVF_condA_data      = {};
+        let PVF_mode_data       = {};
         let PVF_condA           = 0;
         let PVF_pattern_data    = []; // Changed to array to hold current list of singularities
         
 
-        let volume_size           = 50;       // where brain, vectors and streamlines reside
-        let streamlineWidth       = 0.1;      // 0.025 streamline tube width
-        let streamlinesGroup      = new THREE.Group();
-        let singularitiesGroup    = new THREE.Group(); // Group for singularities
-        let present_PVF           = false;
-        let present_streamlines   = false;
-        let minStreamlinePointNum = 2
-        let maxStreamlinePointNum = 15
+        let volume_size             = 50;       // where brain, vectors and streamlines reside
+        let streamlineWidth         = 0.1;      // 0.025 streamline tube width
+        let streamlinesGroup        = new THREE.Group();
+        let singularitiesGroup      = new THREE.Group(); // Group for singularities
+        let present_PVF             = false;
+        let present_streamlines     = false;
+        let present_singluar_points = false;
+        let minStreamlinePointNum   = 2
+        let maxStreamlinePointNum   = 15
 
 
         let brainSurfaces = {
@@ -538,14 +546,15 @@
 
         // Three.js Scene Variables
         let scene, camera, renderer, controls;
-        let vectorField   = [];
-        let vectorObjects = [];
-        let particles     = [];
+        let vectorField     = [];
+        let modeVectorField = [];
+        let vectorObjects   = [];
+        let particles       = [];
+        let isAnimating     = false;
+        let lastTime        = 0;
+        let fps             = 0;
         let gridHelper;
         let animationId;
-        let isAnimating = false;
-        let lastTime    = 0;
-        let fps         = 0;
 
         // const BufferGeometryUtils = require('three/addons/utils/BufferGeometryUtils.js');
         
@@ -907,8 +916,61 @@
             server_port = serverPortNumber.value
             showError(`Set server IP address: ${server_ip}, port number: ${server_port}`);
         }
+
         // load PVF vector field
         function loadPVFVectorField() {
+            vectorField = [];
+            settings.resolution = PVF_dimension;
+            const size = PVF_dimension;
+            const spacing = volume_size / (size - 1);
+            // Show loading indicator            
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+
+
+             for (let i = 0; i < PVF_positions.length; i++) {
+                // vector position
+                const x = PVF_positions[i][0];
+                const y = PVF_positions[i][1];
+                const z = PVF_positions[i][2];
+                // vector direction
+                vx = PVF_directions[i][0];
+                vy = PVF_directions[i][1];
+                vz = PVF_directions[i][2];
+
+                // normalize vector
+                const magnitude = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                // if (magnitude > 0) {
+                //     vx /= magnitude;
+                //     vy /= magnitude;
+                //     vz /= magnitude;
+                // }
+            
+                vectorField.push({
+                    position: new THREE.Vector3(x, y, z),
+                    direction: new THREE.Vector3(vx, vy, vz),
+                    magnitude: magnitude
+                });
+             }
+
+
+            createVectorObjects()
+            // Update controls
+            controls.update();
+            
+            // loadingIndicator.classList.remove('hidden', 'opacity-0');
+            
+            // Render scene
+            renderer.render(scene, camera);
+            
+            // showError("PVF vector field loaded successfully");
+            // Hide loading indicator
+            loadingIndicator.classList.add('opacity-0', 'hidden');
+            present_PVF = true;
+        }
+
+        function createModeVectorFields(){
+            removeVectorObjects();
+
             vectorField = [];
             settings.resolution = PVF_dimension;
             const size = PVF_dimension;
@@ -1025,6 +1087,7 @@
 
         // Function to create/update singularities
         function createSingularities() {
+            present_singluar_points = true
             // Clear existing singularities
             while(singularitiesGroup.children.length > 0){ 
                 singularitiesGroup.remove(singularitiesGroup.children[0]); 
@@ -1803,6 +1866,67 @@
             PVF_times           = data.times;
             PVF_condA           = data.condA;
             PVF_pattern_data    = data.patterns;
+            PVF_mode_info       = data.mode_info;
+            PVF_streamlines     = data.streamlines;
+            PVF_num_time_points = data.PVF_num_time_points;
+            PVF_dimension       = data.PVF_dimension;
+            t_max               = PVF_num_time_points - 1;
+            // console.log(`PVF_num_time_points: ${PVF_times}`);
+            timeSlider.min           = t_min;
+            timeSlider.max           = t_max;
+            timeSlider.value         = current_timepoint;
+            const times_tmin        = PVF_times[t_min];
+            const times_tmax        = PVF_times[t_max];
+            const times_currenttime = PVF_times[timeSlider.value];
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
+            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+            timeStat.innerHTML = times_currenttime.toFixed(2);
+
+            modeSelect.innerHTML = '';
+            for (const key in PVF_mode_info) {
+                singular_value       = PVF_mode_info[key]['singular_value']
+                percentage_explained = PVF_mode_info[key]['percentage'] * 100
+                // console.log(key, data[key]);
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = `Mode ${key}: ${singular_value}, percentage explained ${percentage_explained}%`;
+                fileSelect.appendChild(option);
+            }
+
+            loadBrainSurfaces(subject);
+            
+            // Draw singularities immediately after load
+            if (present_singluar_points == true){
+                createSingularities();
+            }
+
+            showError("PVF and streamlines loaded successfully.");
+            loadingIndicator.classList.add('hidden', 'opacity-0');
+            
+        }
+
+        async function loadModeFields(){
+            // 这里可以实现加载选中文件夹内文件的逻辑
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+            subject = folderSelect.value;
+            file    = fileSelect.value;
+
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(file)}`);
+                
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
+            }
+            
+            const data = await response.json();
+            subject_ID          = data.subject_ID;
+            PVF_positions       = data.pvf_positions;
+            PVF_directions      = data.pvf_directions;
+            PVF_times           = data.times;
+            PVF_condA           = data.condA;
+            PVF_pattern_data    = data.patterns;
+            PVF_mode_info       = data.mode_info;
             PVF_streamlines     = data.streamlines;
             PVF_num_time_points = data.PVF_num_time_points;
             PVF_dimension       = data.PVF_dimension;
@@ -1822,11 +1946,13 @@
             loadBrainSurfaces(subject);
             
             // Draw singularities immediately after load
-            createSingularities();
+            if (present_singluar_points == true){
+                createSingularities();
+            }
+            
 
             showError("PVF and streamlines loaded successfully.");
             loadingIndicator.classList.add('hidden', 'opacity-0');
-            
         }
 
         // 显示错误信息
