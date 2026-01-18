@@ -75,7 +75,7 @@ async def load_subjects_files(
                             file            : str             = Query(None),):
     load_subject_json_files(subject_name=subject, file_name=file)
     data = resp_pvf_json(subject_name=subject, file_name=file, timepoint=0)
-    await asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject, file_name=file))
+    task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject, file_name=file))
     return data
 
 @app.get("/api/load-modes")
@@ -209,6 +209,7 @@ def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, 
     vol_src         = subjects_loaded_pvf_data[subject_name]['vol_src']
     volume_vert_ind = subjects_loaded_pvf_data[subject_name]['volume_vertex_index']
 
+    temporal_modes = file_pvf_data["mode_data"]["temporal_modes"]
     mode_vel_mat = np.asarray(file_pvf_data["mode_data"]["mode_vel_mat"])
     vx           = np.squeeze(mode_vel_mat[mode_id, 0, :, :, :])           # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
     vy           = np.squeeze(mode_vel_mat[mode_id, 1, :, :, :])           # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
@@ -234,7 +235,7 @@ def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, 
     directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
     directions = directions / directions_norm_max
     
-    return {"positions": positions.tolist(), "directions": directions.tolist()}
+    return {"positions": positions.tolist(), "directions": directions.tolist(), "temporal_modes": temporal_modes}
 
 def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subject_list_index_dict, subjects_loaded_pvf_data
@@ -245,7 +246,6 @@ def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]
         subject_pvf_data = read_subject_pvf_json(subject_name=subject_name, file_name=file_name)
         subjects_loaded_pvf_data[subject_name] = subject_pvf_data
         subject_list_index_dict.append(subject_name)
-        # task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
     elif subject_name not in subjects_loaded_pvf_data and subject_list_index == MAX_NUM_SUBJECTS_ALLOWED_LOAD:
         remove_subject_name = subject_list_index_dict[0]
         subjects_loaded_pvf_data.pop(remove_subject_name)
@@ -253,11 +253,9 @@ def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]
         subject_pvf_data                       = read_subject_pvf_json(subject_name=subject_name, file_name=file_name)
         subjects_loaded_pvf_data[subject_name] = subject_pvf_data
         subject_list_index_dict.append(subject_name)
-        # task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
     elif subject_name in subjects_loaded_pvf_data:
         if file_name not in subjects_loaded_pvf_data[subject_name]['meta_files']:
             subjects_loaded_pvf_data[subject_name]['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
-            # task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
 
 def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any]:
 
@@ -415,26 +413,27 @@ async def load_streamlines_all_time_windows(subject_name: str, file_name: str):
     """loading all streamlines from folder in background"""
     global subjects_loaded_pvf_data
 
-    metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
-    pvf_streamline_folder = str(metadata_path.replace("_metadata.json", "_streamlines"))
-    print(f"In background loading streamlines of all time windows from folder: {pvf_streamline_folder}")
-    
-    streamline_files = [
-        f for f in os.listdir(pvf_streamline_folder)
-        if os.path.isfile(os.path.join(pvf_streamline_folder, f)) and f.endswith(".json")
-    ]
-    
-    for file in streamline_files:
-        print(f"Loading streamlines from: {file}")
-        file_path = os.path.join(pvf_streamline_folder, file)
-        async with aiofiles.open(file_path, "r", encoding="utf8") as f:
-            content = await f.read()  # 异步读取全部内容
-            streamlines_time_windows = json.loads(content)  # 解析 JSON
-            # streamlines_time_windows = json.load(f)
-            for timepoint, streamlines in streamlines_time_windows.items():
-                subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]['streamlines_time_windows'][timepoint] = streamlines
-    
-    print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
+    if len(subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]['streamlines_time_windows']) < subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]["PVF_num_time_points"]:
+        metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
+        pvf_streamline_folder = str(metadata_path.replace("_metadata.json", "_streamlines"))
+        print(f"In background loading streamlines of all time windows from folder: {pvf_streamline_folder}")
+        
+        streamline_files = [
+            f for f in os.listdir(pvf_streamline_folder)
+            if os.path.isfile(os.path.join(pvf_streamline_folder, f)) and f.endswith(".json")
+        ]
+        
+        for file in streamline_files:
+            print(f"Loading streamlines from: {file}")
+            file_path = os.path.join(pvf_streamline_folder, file)
+            async with aiofiles.open(file_path, "r", encoding="utf8") as f:
+                content = await f.read()  # 异步读取全部内容
+                streamlines_time_windows = json.loads(content)  # 解析 JSON
+                # streamlines_time_windows = json.load(f)
+                for timepoint, streamlines in streamlines_time_windows.items():
+                    subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]['streamlines_time_windows'][timepoint] = streamlines
+        
+        print(f"Completed loading all streamlines from: {len(streamline_files)} json files.")
 
 # downsample streamlines for faster rendering
 def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]:
@@ -462,13 +461,13 @@ def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str
         "metadata_fname"     : file_name,
         "pvf_positions"      : pvf_data["positions"].tolist(),
         "pvf_directions"     : pvf_data["directions"].tolist(),
-        "times"              : file_pvf_data["times"],
+        "times"              : file_pvf_data["times"][:-2],
         "condA"              : sum(file_pvf_data["condA"][str(timepoint)]) / len(file_pvf_data["condA"][str(timepoint)]),
         "patterns"           : file_pvf_data["pattern_data"].get(str(timepoint), []),
         "mode_info"          : file_pvf_data['mode_info'],
         "streamlines"        : streamlines,
         "PVF_dimension"      : file_pvf_data["PVF_dimension"],
-        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"],                                            }
+        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"]-2,                                            }
 
 
 # start up server

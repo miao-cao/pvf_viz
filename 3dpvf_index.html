@@ -72,7 +72,7 @@
         }
         .div-disabled {
             filter: grayscale(100%);
-            opacity: 0.7;
+            opacity: 0.1;
             pointer-events: none;
             user-select: none;
             /* background-color: #f5f5f5 !important; */
@@ -120,17 +120,15 @@
                 </h2>
                 <div class="mb-5">
                     <div class="mb-4 gap-2">
-                        <label class="block text-sm font-medium text-light/80 mb-3">Database IP address</label>
-                        <input type="text" id="server_ip" placeholder="127.0.0.1" style="color: black; padding: 6px; border: 1px solid #cfcaca;">
-                    </div>
-                    <div class="mb-4 gap-2">
-                        <label class="block text-sm font-medium text-light/80 mb-3">Database port number</label>
-                        <input type="number" id="server_port" placeholder="32123" style="color: black; padding: 6px; border: 1px solid #cfcaca;">
+                        <label class="inline-block font-medium text-light/80 mb-2">IP address:</label>
+                        <input type="text" id="server_ip" placeholder="127.0.0.1" style="width: 25%; color: black; padding: 6px; border: 1px solid #cfcaca;">
+                        <label class="inline-block font-medium text-light/80 mb-2">Port:</label>
+                        <input type="number" id="server_port" placeholder="32123" style="width: 25%; color: black; padding: 6px; border: 1px solid #cfcaca;">
                     </div>
                     <div class="text-sm text-gray-600 gap-2">
                         <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="setServerIPPort()">
-                            <i class="fas fa-list"></i>
-                            <span>Set IP address and port</span>
+                            <i class="fas fa-database"></i>
+                            <span>Set database IP address and port</span>
                         </button>
                     </div>
                 </div>
@@ -183,7 +181,7 @@
                     <div class="space-y-4">                         
                         <div>
                             <label class="block text-sm font-medium text-light/80 mb-1">Vector Scale</label>
-                            <input type="range" id="vector-scale" min="0.1" max="4" step="0.1" value="2" 
+                            <input type="range" id="vector-scale" min="0.1" max="8" step="0.1" value="4" 
                                 class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
                         </div>
                         <div>
@@ -524,7 +522,7 @@
         let PVF_directions      = [];
         let PVF_streamlines     = {};
         let PVF_condA_data      = {};
-        let PVF_mode_data       = {};
+        let PVF_temporal_modes  = {};
         let PVF_condA           = 0;
         let PVF_pattern_data    = []; // Changed to array to hold current list of singularities
         
@@ -710,7 +708,7 @@
         function setupThreeJS() {
             // Create scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x03080b); // THREE.Color(0x1E293B);
+            scene.background = new THREE.Color(0x03080b); // THREE.Color(0x1E293B);0x03080b
             // scene.rotation.x = Math.PI / 2; // Tilt the scene for better view
             // scene.rotation.y = Math.PI / 2; // Tilt the scene for better view
             scene.rotation.x = Math.PI / 2 * -1; // Tilt the scene for better view
@@ -868,9 +866,13 @@
             });
 
             document.getElementById('show-vectors').addEventListener('change', (e) => {
-                present_PVF = e.target.value;
-                // createVectorObjects();
-                updateVectorObjects();
+                present_PVF = e.target.checked;
+                // console.log(present_PVF)
+                if (present_PVF == true){
+                    loadPVFVectorField();
+                }else{
+                    removeVectorObjects();
+                }
             });
             
 
@@ -897,7 +899,12 @@
             document.getElementById('show-streamlines').addEventListener('change', (e) => {
                 present_streamlines = e.target.checked;
                 // createSingularities();
-                createStreamlines();               
+                if (present_streamlines == true){
+                    createStreamlines();
+                }else{
+                    removeStreamlines();
+                }
+                               
             });
 
             document.getElementById('time-slider').addEventListener('change', (e) => {
@@ -927,6 +934,8 @@
 
         // load PVF vector field
         function loadPVFVectorField() {
+            removeVectorObjects();
+            removeStreamlines();
             vectorField = [];
             settings.resolution = PVF_dimension;
             const size = PVF_dimension;
@@ -960,7 +969,7 @@
                 });
              }
 
-
+            present_PVF = true;
             createVectorObjects()
             updateVectorObjects()
             // Update controls
@@ -970,6 +979,8 @@
             
             // Render scene
             renderer.render(scene, camera);
+
+
             
             // showError("PVF vector field loaded successfully");
             // Hide loading indicator
@@ -979,62 +990,9 @@
 
             const showVectorsCheckbox = document.getElementById("show-vectors");
             showVectorsCheckbox.checked = true;
-            present_PVF = true;
+            
+            
         }
-
-        function createModeVectorFields(){
-            removeVectorObjects();
-
-            vectorField = [];
-            settings.resolution = PVF_dimension;
-            const size = PVF_dimension;
-            const spacing = volume_size / (size - 1);
-            // Show loading indicator            
-            loadingIndicator.classList.remove('hidden', 'opacity-0');
-
-
-             for (let i = 0; i < PVF_positions.length; i++) {
-                // vector position
-                const x = PVF_positions[i][0];
-                const y = PVF_positions[i][1];
-                const z = PVF_positions[i][2];
-                // vector direction
-                vx = PVF_directions[i][0];
-                vy = PVF_directions[i][1];
-                vz = PVF_directions[i][2];
-
-                // normalize vector
-                const magnitude = Math.sqrt(vx * vx + vy * vy + vz * vz);
-                // if (magnitude > 0) {
-                //     vx /= magnitude;
-                //     vy /= magnitude;
-                //     vz /= magnitude;
-                // }
-            
-                vectorField.push({
-                    position: new THREE.Vector3(x, y, z),
-                    direction: new THREE.Vector3(vx, vy, vz),
-                    magnitude: magnitude
-                });
-             }
-
-
-            createVectorObjects();
-            updateVectorObjects();
-            // Update controls
-            controls.update();
-            
-            // loadingIndicator.classList.remove('hidden', 'opacity-0');
-            
-            // Render scene
-            renderer.render(scene, camera);
-            
-            // showError("PVF vector field loaded successfully");
-            // Hide loading indicator
-            loadingIndicator.classList.add('opacity-0', 'hidden');
-            present_PVF = true;
-        }
-
 
         async function updatePVFStreamlines() {
             // loadingIndicator.classList.remove('hidden', 'opacity-0');
@@ -1341,7 +1299,8 @@
                     scene.add(vectorObject);
                     vectorObjects.push(vectorObject);
                 });
-            }
+                renderer.render(scene, camera);
+            };
 
         }
         
@@ -1644,6 +1603,9 @@
 
             // clear streamlines from previous frame
             removeStreamlines();
+            document.getElementById('show-streamlines').checked = true;
+            present_streamlines = true;
+
             if (present_streamlines == true){
                 streamlinesGroup = new THREE.Group();
                 streamlinesGroup.name = 'PVFstreamlines';
@@ -1737,9 +1699,8 @@
                     renderer.setSize(window.innerWidth, window.innerHeight);
                 });
             }
-
-            // showError("Streamlines created successfully.");
-            // present_streamlines = true;
+            
+            
         };
 
         // 加载subject列表
@@ -1937,8 +1898,12 @@
             const time_control_div = document.getElementById("time-control-module");
             time_control_div.classList.remove("div-disabled");
             loadingIndicator.classList.add('hidden', 'opacity-0');
+
+            removeVectorObjects();
+            removeStreamlines();
             
         }
+
 
         async function loadModeFields(){
             // 这里可以实现加载选中文件夹内文件的逻辑
@@ -1958,15 +1923,150 @@
             const data = await response.json();
             PVF_positions       = data.positions;
             PVF_directions      = data.directions;
-
-            createModeVectorFields()
-            
-            showError("Mode fields loaded successfully.");
+            PVF_temporal_modes  = data.temporal_modes
 
             const time_control_div = document.getElementById("time-control-module");
             time_control_div.classList.add("div-disabled");
 
+            present_PVF = true;
+            const showVectorsCheckbox = document.getElementById("show-vectors");
+            showVectorsCheckbox.checked = true;
+            createModeVectorFields();
+            showTemporalModes();
+            
+            // showError("Mode fields loaded successfully.");
+
+            
+
             loadingIndicator.classList.add('hidden', 'opacity-0');
+        }
+
+        function createModeVectorFields(){
+            removeStreamlines();
+            removeVectorObjects();
+            vectorField = [];
+            settings.resolution = PVF_dimension;
+            const size = PVF_dimension;
+            const spacing = volume_size / (size - 1);
+            // Show loading indicator            
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+
+
+             for (let i = 0; i < PVF_positions.length; i++) {
+                // vector position
+                const x = PVF_positions[i][0];
+                const y = PVF_positions[i][1];
+                const z = PVF_positions[i][2];
+                // vector direction
+                vx = PVF_directions[i][0];
+                vy = PVF_directions[i][1];
+                vz = PVF_directions[i][2];
+
+                // normalize vector
+                const magnitude = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                // if (magnitude > 0) {
+                //     vx /= magnitude;
+                //     vy /= magnitude;
+                //     vz /= magnitude;
+                // }
+            
+                vectorField.push({
+                    position: new THREE.Vector3(x, y, z),
+                    direction: new THREE.Vector3(vx, vy, vz),
+                    magnitude: magnitude
+                });
+             }
+
+            createVectorObjects();
+            updateVectorObjects();
+            // Update controls
+            controls.update();
+            
+            // loadingIndicator.classList.remove('hidden', 'opacity-0');
+            
+            // Render scene
+            renderer.render(scene, camera);
+            
+            // showError("PVF vector field loaded successfully");
+            // Hide loading indicator
+            loadingIndicator.classList.add('opacity-0', 'hidden');
+        }
+
+        function showTemporalModes(){
+            const curveDiv = document.createElement('div');
+            
+            // 2. 设置div的样式（宽度、高度、边框、背景等，保证容器可见）
+            curveDiv.classList.add(
+                                "absolute",
+                                "bottom-0.5",
+                                "left-1/2",
+                                "-translate-x-1/2",
+                                "w-[50rem]",
+                                "rounded-xl",
+                                "p-4",
+                                "border",
+                                "border-white/10",
+                                "mb-4");
+    
+            curveDiv.id = 'temporal-mode-container'; // 给div设置唯一id，便于后续操作
+            
+            // 3. 将div插入到页面中（此处插入到body末尾，可按需修改插入位置）
+            document.body.appendChild(curveDiv);
+            const canvas = document.createElement('canvas');
+            
+            // 2. 设置canvas尺寸（宽高要适配div容器，避免超出）
+            canvas.width = 800; // 对应div的padding 20px，宽度=800-40=760
+            canvas.height = 400; // 高度=600-40=560
+            canvas.style.backgroundColor = '#ffffff';
+            canvas.style.borderRadius = '4px';
+            canvas.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            
+            // 3. 将canvas插入到动态创建的div中
+            curveDiv.appendChild(canvas);
+            
+            // 4. 获取canvas的2D绘图上下文（核心，所有绘制操作都依赖该上下文）
+            const ctx = canvas.getContext('2d');
+            
+            // 5. 定义绘制配置：保证10条曲线样式不同（颜色、起始点、控制点不同）
+            const curveConfig = [
+                { color: '#ff0000', yBase: 50 },   // 曲线1：红色
+                { color: '#ff9900', yBase: 110 },  // 曲线2：橙色
+                { color: '#ffff00', yBase: 170 },  // 曲线3：黄色
+                { color: '#00ff00', yBase: 230 },  // 曲线4：绿色
+                { color: '#00ffff', yBase: 290 },  // 曲线5：青色
+                { color: '#0099ff', yBase: 350 },  // 曲线6：蓝色
+                { color: '#9900ff', yBase: 410 },  // 曲线7：紫色
+                { color: '#ff00ff', yBase: 470 },  // 曲线8：洋红
+                { color: '#666666', yBase: 530 },  // 曲线9：深灰
+                { color: '#000000', yBase: 590 }   // 曲线10：黑色（注意canvas高度，避免超出）
+            ];
+            
+            // 6. 循环绘制10条二次贝塞尔曲线（简单易实现，适合快速展示）
+            curveConfig.forEach((config, index) => {
+                // 重置路径（避免多条曲线相互关联）
+                ctx.beginPath();
+                
+                // 设置曲线样式（颜色、线宽）
+                ctx.strokeStyle = config.color;
+                ctx.lineWidth = 2; // 曲线线宽，统一设置（可按需差异化）
+                
+                // 定义曲线坐标：
+                // moveTo(x1, y1)：起始点（从左侧开始，x=50，y基于配置的yBase）
+                // quadraticCurveTo(cpX, cpY, x2, y2)：二次贝塞尔曲线（控制点 + 结束点）
+                const startX = 50; // 起始点X坐标
+                const startY = config.yBase; // 起始点Y坐标
+                const controlX = canvas.width / 2; // 控制点X坐标（画布中间）
+                const controlY = startY - 80 + Math.random() * 160; // 控制点Y坐标（随机波动，让曲线形状不同）
+                const endX = canvas.width - 50; // 结束点X坐标（右侧）
+                const endY = config.yBase; // 结束点Y坐标（与起始点Y一致，保证水平对称）
+                
+                // 绘制路径：移动到起始点 -> 绘制二次贝塞尔曲线
+                ctx.moveTo(startX, startY);
+                ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+                
+                // 描边（真正绘制出曲线，不描边仅定义路径，无法显示）
+                ctx.stroke();
+            });
         }
 
         // 显示错误信息
@@ -1991,7 +2091,7 @@
         }
 
         // 监听下拉框变化
-        folderSelect.addEventListener('change', (e) => {
+        folderSelect.addEventListener('click', (e) => {
             const selectedSubject = e.target.value;
             // showSelectedFolder(selectedSubject);
             loadFileList(selectedSubject);
