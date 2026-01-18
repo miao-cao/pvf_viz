@@ -74,14 +74,16 @@ async def load_subjects_files(
                             subject         : str             = Query(None),
                             file            : str             = Query(None),):
     load_subject_json_files(subject_name=subject, file_name=file)
-    resp_pvf_json(subject_name=subject, file_name=file, timepoint=0)
+    data = resp_pvf_json(subject_name=subject, file_name=file, timepoint=0)
+    await asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject, file_name=file))
+    return data
 
 @app.get("/api/load-modes")
 async def load_subject_file_modes(                            
                             subject         : str             = Query(None),
                             file            : str             = Query(None),
-                            mode            : str             = Query(None),):
-    data = await process_modes(subject_name=subject, file_name=file, mode_id=int(mode))
+                            mode            : int             = Query(None),):
+    data = process_modes(subject_name=subject, file_name=file, mode_id=int(mode))
     return data
 
 @app.get("/api/update-PVF-streamlines")
@@ -198,7 +200,7 @@ def process_streamlines_time_window(subject_name: str, file_name: str, pvf_time_
 def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, Any]:
     """处理特定时间窗口的PVF数据"""
     global subjects_loaded_pvf_data
-    print(f"Processing modes for {subject_name}'s {file_name}")
+    print(f"Processing modes for {subject_name}'s {file_name} on mode {mode_id}")
 
     file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
 
@@ -232,9 +234,9 @@ def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, 
     directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
     directions = directions / directions_norm_max
     
-    return {"positions": positions, "directions": directions}
+    return {"positions": positions.tolist(), "directions": directions.tolist()}
 
-async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
+def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subject_list_index_dict, subjects_loaded_pvf_data
 
     subject_list_index = len(subject_list_index_dict)
@@ -243,6 +245,7 @@ async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str
         subject_pvf_data = read_subject_pvf_json(subject_name=subject_name, file_name=file_name)
         subjects_loaded_pvf_data[subject_name] = subject_pvf_data
         subject_list_index_dict.append(subject_name)
+        # task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
     elif subject_name not in subjects_loaded_pvf_data and subject_list_index == MAX_NUM_SUBJECTS_ALLOWED_LOAD:
         remove_subject_name = subject_list_index_dict[0]
         subjects_loaded_pvf_data.pop(remove_subject_name)
@@ -250,10 +253,13 @@ async def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str
         subject_pvf_data                       = read_subject_pvf_json(subject_name=subject_name, file_name=file_name)
         subjects_loaded_pvf_data[subject_name] = subject_pvf_data
         subject_list_index_dict.append(subject_name)
-    elif subject_name in subjects_loaded_pvf_data and file_name not in subjects_loaded_pvf_data['meta_files']:
-        subjects_loaded_pvf_data[subject_name]['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
+        # task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
+    elif subject_name in subjects_loaded_pvf_data:
+        if file_name not in subjects_loaded_pvf_data[subject_name]['meta_files']:
+            subjects_loaded_pvf_data[subject_name]['meta_files'][file_name] = read_file_pvf_data(subject_name=subject_name, file_name=file_name)
+            # task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
 
-async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any]:
+def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any]:
 
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
     vx_path               = metadata_path.replace("_metadata.json", "_Vx.json")
@@ -354,18 +360,18 @@ async def read_file_pvf_data(subject_name: str, file_name: str) -> Dict[str, Any
     except Exception as e:
         print(f"Failed with errors: {e}")
     
-    task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject_name, file_name=file_name))
     return file_pvf_data
 
-async def read_subject_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
+def read_subject_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subjects_loaded_pvf_data
     
     subject_id                                = subject_name
     whole_brain_source_space_fname            = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
     
-    subject_pvf_data                          = dict()
-    subject_pvf_data['subject_id']            = subject_name
-    subject_pvf_data['vol_src']               = mne.read_source_spaces(whole_brain_source_space_fname)
+    subject_pvf_data               = dict()
+    subject_pvf_data['subject_id'] = subject_name
+    subject_pvf_data['vol_src']    = mne.read_source_spaces(whole_brain_source_space_fname)
+    subject_pvf_data['meta_files'] = dict()
     print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
     
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
@@ -442,7 +448,7 @@ def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]
 # ------------------------------------------------------
 
 # ------ response of pvf (json) data to api requests --------------
-async def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str, Any]:
+def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str, Any]:
     """生成PVF JSON响应"""
     global subjects_loaded_pvf_data
 
@@ -457,8 +463,8 @@ async def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Di
         "pvf_positions"      : pvf_data["positions"].tolist(),
         "pvf_directions"     : pvf_data["directions"].tolist(),
         "times"              : file_pvf_data["times"],
-        "condA"              : sum(file_pvf_data["condA"][timepoint]) / len(file_pvf_data["condA"][timepoint]),
-        "patterns"           : file_pvf_data["pattern_data"].get(timepoint, []),
+        "condA"              : sum(file_pvf_data["condA"][str(timepoint)]) / len(file_pvf_data["condA"][str(timepoint)]),
+        "patterns"           : file_pvf_data["pattern_data"].get(str(timepoint), []),
         "mode_info"          : file_pvf_data['mode_info'],
         "streamlines"        : streamlines,
         "PVF_dimension"      : file_pvf_data["PVF_dimension"],

@@ -70,6 +70,13 @@
                 background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
             }
         }
+        .div-disabled {
+            filter: grayscale(100%);
+            opacity: 0.7;
+            pointer-events: none;
+            user-select: none;
+            /* background-color: #f5f5f5 !important; */
+        }
     </style>
 </head>
 <body class="font-inter bg-dark text-light overflow-hidden">
@@ -246,7 +253,7 @@
                         </div>
                         
                         <div class="flex items-center">
-                            <input type="checkbox" id="show-streamlines" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <input id="show-streamlines" type="checkbox" id="show-streamlines" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
                             <label for="show-streamlines" class="ml-2 text-sm text-light/80">Show streamlines</label>
                         </div>
                         <div class="flex items-center">
@@ -267,7 +274,7 @@
                     
                     <div class="space-y-4">
                         <div class="flex items-center">
-                            <input type="checkbox" id="show-singularities" checked 
+                            <input type="checkbox" id="show-singularities" 
                                 class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
                             <label for="show-singularities" class="ml-2 text-sm text-light/80">Show Singular Points</label>
                         </div>
@@ -425,7 +432,7 @@
                 </div>
             </div>
             <!-- Time control Settings -->
-            <div class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[50rem] rounded-xl p-4 border border-white/10 mb-4">
+            <div id="time-control-module" class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[50rem] rounded-xl p-4 border border-white/10 mb-4">
                 <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
                     <i class="fas fa-play text-primary"></i>
                     Time control
@@ -597,7 +604,7 @@
             showStreamlines  : true,
             animationSpeed   : 1,
             particleCount    : 100,
-            showSingularities: true,
+            showSingularities: false,
             singularityScale : 1.0
         };
         class CustomCurve extends THREE.Curve {
@@ -863,7 +870,7 @@
             document.getElementById('show-vectors').addEventListener('change', (e) => {
                 present_PVF = e.target.value;
                 // createVectorObjects();
-                // updateVectorObjects();
+                updateVectorObjects();
             });
             
 
@@ -889,7 +896,8 @@
 
             document.getElementById('show-streamlines').addEventListener('change', (e) => {
                 present_streamlines = e.target.checked;
-                createSingularities();               
+                // createSingularities();
+                createStreamlines();               
             });
 
             document.getElementById('time-slider').addEventListener('change', (e) => {
@@ -954,6 +962,7 @@
 
 
             createVectorObjects()
+            updateVectorObjects()
             // Update controls
             controls.update();
             
@@ -965,6 +974,11 @@
             // showError("PVF vector field loaded successfully");
             // Hide loading indicator
             loadingIndicator.classList.add('opacity-0', 'hidden');
+            const time_control_div = document.getElementById("time-control-module");
+            time_control_div.classList.remove("div-disabled");
+
+            const showVectorsCheckbox = document.getElementById("show-vectors");
+            showVectorsCheckbox.checked = true;
             present_PVF = true;
         }
 
@@ -1005,7 +1019,8 @@
              }
 
 
-            createVectorObjects()
+            createVectorObjects();
+            updateVectorObjects();
             // Update controls
             controls.update();
             
@@ -1047,7 +1062,10 @@
             };
             
             // Update Singularities
-            createSingularities();
+            if (settings.showSingularities == true){
+                createSingularities();
+            }
+            
 
             // Update streamlines
             if (present_streamlines == true){
@@ -1744,12 +1762,16 @@
 
                 folderSelect.innerHTML = '';
 
-                
+                count_opt = 0;
                 for (const key in data) {
                     // console.log(key, data[key]);
                     const option = document.createElement('option');
                     option.value = data[key];
                     option.textContent = data[key];
+                    if (count_opt == 0){
+                        option.selected = true;
+                    }
+                    count_opt = count_opt + 1;
                     folderSelect.appendChild(option);
                 }
 
@@ -1795,11 +1817,16 @@
                 // 清空并添加默认选项
                 fileSelect.innerHTML = '';
                 
+                count_opt = 0;
                 for (const key in data) {
                     // console.log(key, data[key]);
                     const option = document.createElement('option');
                     option.value = data[key];
                     option.textContent = data[key];
+                    if (count_opt == 0){
+                        option.selected = true;
+                    }
+                    count_opt = count_opt + 1
                     fileSelect.appendChild(option);
                 }
 
@@ -1883,25 +1910,32 @@
             timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
             timeStat.innerHTML = times_currenttime.toFixed(2);
 
+            // console.log(PVF_mode_info);
             modeSelect.innerHTML = '';
             for (const key in PVF_mode_info) {
                 singular_value       = PVF_mode_info[key]['singular_value']
-                percentage_explained = PVF_mode_info[key]['percentage'] * 100
-                // console.log(key, data[key]);
+                percentage_explained = PVF_mode_info[key]['percentage']
+                mode_id = Number.parseInt(key)+1
+
                 const option = document.createElement('option');
-                option.value = key;
-                option.textContent = `Mode ${key}: ${singular_value}, percentage explained ${percentage_explained}%`;
-                fileSelect.appendChild(option);
+                option.value = mode_id;
+                option.textContent = "Mode " + mode_id + ": " + singular_value.toFixed(2) + " percentage explained " + percentage_explained.toFixed(2) + "%";
+                if (mode_id == 1){
+                    option.selected = true;
+                }
+                modeSelect.appendChild(option);
             }
 
             loadBrainSurfaces(subject);
             
             // Draw singularities immediately after load
-            if (present_singluar_points == true){
+            if (settings.showSingularities == true){
                 createSingularities();
             }
 
             showError("PVF and streamlines loaded successfully.");
+            const time_control_div = document.getElementById("time-control-module");
+            time_control_div.classList.remove("div-disabled");
             loadingIndicator.classList.add('hidden', 'opacity-0');
             
         }
@@ -1911,8 +1945,10 @@
             loadingIndicator.classList.remove('hidden', 'opacity-0');
             subject = folderSelect.value;
             file    = fileSelect.value;
+            modeID  = modeSelect.value - 1;
+            console.log("requesting mode: " + modeID)
 
-            const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(file)}`);
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(modeID)}`);
                 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
@@ -1920,38 +1956,16 @@
             }
             
             const data = await response.json();
-            subject_ID          = data.subject_ID;
-            PVF_positions       = data.pvf_positions;
-            PVF_directions      = data.pvf_directions;
-            PVF_times           = data.times;
-            PVF_condA           = data.condA;
-            PVF_pattern_data    = data.patterns;
-            PVF_mode_info       = data.mode_info;
-            PVF_streamlines     = data.streamlines;
-            PVF_num_time_points = data.PVF_num_time_points;
-            PVF_dimension       = data.PVF_dimension;
-            t_max               = PVF_num_time_points - 1;
-            // console.log(`PVF_num_time_points: ${PVF_times}`);
-            timeSlider.min           = t_min;
-            timeSlider.max           = t_max;
-            timeSlider.value         = current_timepoint;
-            const times_tmin        = PVF_times[t_min];
-            const times_tmax        = PVF_times[t_max];
-            const times_currenttime = PVF_times[timeSlider.value];
-            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
-            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
-            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-            timeStat.innerHTML = times_currenttime.toFixed(2);
+            PVF_positions       = data.positions;
+            PVF_directions      = data.directions;
 
-            loadBrainSurfaces(subject);
+            createModeVectorFields()
             
-            // Draw singularities immediately after load
-            if (present_singluar_points == true){
-                createSingularities();
-            }
-            
+            showError("Mode fields loaded successfully.");
 
-            showError("PVF and streamlines loaded successfully.");
+            const time_control_div = document.getElementById("time-control-module");
+            time_control_div.classList.add("div-disabled");
+
             loadingIndicator.classList.add('hidden', 'opacity-0');
         }
 
