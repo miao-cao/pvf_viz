@@ -228,7 +228,7 @@
                         <label class="block text-sm font-medium text-light/80 mb-1">Show PVF vectors</label>
                         <!-- Present PVF button -->
                         <div class="flex items-center">
-                            <input type="checkbox" id="show-vectors" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50", style="background-color: black; color: azure;">
+                            <input type="checkbox" id="show-vectors" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
                             <label for="show-vectors" class="ml-2 text-sm text-light/80">Show vectors</label>
                         </div>
                         <div class="flex items-center">
@@ -1284,11 +1284,11 @@
                             const arrowHelper = new THREE.ArrowHelper(
                                 vector.direction.clone().normalize(), // vector.direction.clone().multiplyScalar(scale),
                                 vector.position,
-                                vector.magnitude * scale * 1.2,
+                                vector.magnitude * scale * 1.5,
                                 getVectorColor(vector)
                             );
                             vectorObject = arrowHelper;
-                            vectorObject.setLength(1.5 * scale * vector.magnitude, 0.2 * scale, 0.1 * scale);
+                            vectorObject.setLength(1.2 * scale * vector.magnitude, 0.4 * scale, 0.2 * scale);
                             break;
                             
                         case 'lines':
@@ -2038,59 +2038,88 @@
 
         function showTemporalModes(){
             console.log(PVF_temporal_modes.length)
-
+            modeID = modeSelect.value - 1;
             // 1. 创建Canvas元素（插入到chartContainer中）
             const container = document.getElementById('time-mode-plot');
             container.style.visibility = "visible"
+            container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "hidden"
             const canvas = document.createElement('canvas');
             container.appendChild(canvas);
-            canvas.width = "100%";
+            canvas.width  = "100%";
             canvas.height = "100%";
 
             // 2. 定义颜色数组（10种不同颜色，可自定义）
-            const lineColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF',
-                '#00FFFF', '#FF7F00', '#7FFF00', '#00FF7F', '#7F00FF'];
+            const lineColors = ['#ff4545', '#df5c4e', '#a8b7ff', "#ff4545", '#ffc45c', 
+                                '##feda57', '#a4c6eb', '#cfeaf4', '#9dba6f', '#a9c97a', 
+                                '#c27c87', '#6b86a5', '#5e7684', '#136b87', '#4e5c35', 
+                                '#ffe6d4', '#4a7c82', '#c27c87', '#6e3f4a', '#787f72'];
 
             // 3. 构造Chart.js所需数据格式
+            const datasets = []
+            for (let i = 0; i < PVF_temporal_modes.length; i++) {
+                const isHighlight = i === modeID;
+                line = PVF_temporal_modes[i];
+                datasets.push(
+                    {
+                       label               : `mode ${i+1}`,
+                       data                : PVF_temporal_modes[i].map((yValue, xIndex) => ({ 
+                                                x: xIndex, // x轴：使用数组索引（0 ~ 299）
+                                                y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
+                                            })),
+                       borderColor         : isHighlight ? lineColors[i] : lineColors[i] + '33', // 折线边框透明度
+                       borderWidth         : isHighlight ? 1             : 0.5,                    // 高亮折线稍粗，提升辨识度
+                       tension             : 0.2,
+                       fill                : false,
+                        // pointBackgroundColor: isHighlight ? highlightColor: transparentColor, // 数据点透明度
+                       pointRadius         : isHighlight ? 1             : 0.5                     // 高亮数据点稍大
+                    }
+                )
+            }
             const chartData = {
                 labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
-                datasets: PVF_temporal_modes.map((line, index) => ({
-                    label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
-                    data: line.map((yValue, xIndex) => ({ 
-                        x: xIndex, // x轴：使用数组索引（0 ~ 299）
-                        y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
-                    })),
-                    borderColor: lineColors[index], // 线条颜色
-                    backgroundColor: lineColors[index] + '33', // 填充颜色（透明，可选）
-                    borderWidth: 0.1, // 线条宽度
-                    fill: false, // 不填充线下区域
-                    tension: 0, // 折线（无平滑，如需平滑可设为0.4）
-                    point: {
-                        radius: 0, // 点半径设为0，隐藏点
-                        hoverRadius: 0, // 鼠标悬浮时点半径也设为0
-                        display: false // 直接禁用点显示
-                    },// 隐藏数据点（300个点无需显示，提升性能）
-                }))
-            };
+                datasets: datasets
+            }
+            // const chartData = {
+            //     labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
+            //     datasets: PVF_temporal_modes.map((line, index) => ({
+            //         label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
+            //         data: line.map((yValue, xIndex) => ({ 
+            //             x: xIndex, // x轴：使用数组索引（0 ~ 299）
+            //             y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
+            //         })),
+            //         borderColor    : lineColors[index], // 线条颜色
+            //         backgroundColor: lineColors[index], // 填充颜色（透明，可选） + '33'
+            //         borderWidth    : 0,                 // 线条宽度
+            //         fill           : false,             // 不填充线下区域
+            //         tension        : 0.2,               // 折线（无平滑，如需平滑可设为0.4）
+            //         // point: {
+            //         //     radius     : 0, // 点半径设为0，隐藏点
+            //         //     hoverRadius: 0, // 鼠标悬浮时点半径也设为0
+            //         //     display    : false // 直接禁用点显示
+            //         // },// 隐藏数据点（300个点无需显示，提升性能）
+            //     }))
+            // };
 
             // 4. 配置Chart.js选项（背景透明、图例显示等）
             const chartOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
-                // backgroundColor: 'transparent', // 图表背景透明
+                backgroundColor: 'transparent', // 图表背景透明
                 plugins: {
                     title: {
+                        font   : {size: 30},
                         display: true,
-                        text: 'Temporal modes'
+                        color  : '#cfeaf4',  // 图例文字颜色
+                        text   : 'Temporal modes'
                     },
                     legend: {
                         display: true, // 显示图例
                         position: 'top', // 图例位置（右侧，可改为top/bottom/left）
                         labels: {
-                            color: '#333', // 图例文字颜色
-                            font: { size: 14 }
+                            color: '#cfeaf4', // 图例文字颜色
+                            font: { size: 24 }
                         }
                     },
                     tooltip: { enabled: true } // 鼠标悬浮提示（可选）
@@ -2111,7 +2140,7 @@
             new Chart(canvas, {
                 type: 'line',
                 data: chartData,
-                options: chartOptions
+                options: chartOptions,
             });
         }
 
