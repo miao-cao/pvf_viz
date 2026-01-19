@@ -209,12 +209,12 @@ def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, 
     vol_src         = subjects_loaded_pvf_data[subject_name]['vol_src']
     volume_vert_ind = subjects_loaded_pvf_data[subject_name]['volume_vertex_index']
 
-    temporal_modes = file_pvf_data["mode_data"]["temporal_modes"]
-    mode_vel_mat = np.asarray(file_pvf_data["mode_data"]["mode_vel_mat"])
-    vx           = np.squeeze(mode_vel_mat[mode_id, 0, :, :, :])           # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
-    vy           = np.squeeze(mode_vel_mat[mode_id, 1, :, :, :])           # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
-    vz           = np.squeeze(mode_vel_mat[mode_id, 2, :, :, :])           # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
-    vert_no      = volume_vert_ind[mask_volume]
+    temporal_modes = np.asarray(file_pvf_data["mode_data"]["temporal_modes"]).T
+    mode_vel_mat   = np.asarray(file_pvf_data["mode_data"]["mode_vel_mat"])
+    vx             = np.squeeze(mode_vel_mat[mode_id, 0, :, :, :])               # np.squeeze(pvf_vx[:, :, :, pvf_time_window_id])
+    vy             = np.squeeze(mode_vel_mat[mode_id, 1, :, :, :])               # np.squeeze(pvf_vy[:, :, :, pvf_time_window_id])
+    vz             = np.squeeze(mode_vel_mat[mode_id, 2, :, :, :])               # np.squeeze(pvf_vz[:, :, :, pvf_time_window_id])
+    vert_no        = volume_vert_ind[mask_volume]
 
     # obtain positions in mm from volume source space
     positions  = np.zeros((np.sum(mask_volume), 3))
@@ -235,7 +235,7 @@ def process_modes(subject_name: str, file_name: str, mode_id: int) -> Dict[str, 
     directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
     directions = directions / directions_norm_max
     
-    return {"positions": positions.tolist(), "directions": directions.tolist(), "temporal_modes": temporal_modes}
+    return {"positions": positions.tolist(), "directions": directions.tolist(), "temporal_modes": temporal_modes.tolist()}
 
 def load_subject_json_files(subject_name: str, file_name: str) -> Dict[str, Any]:
     global subject_list_index_dict, subjects_loaded_pvf_data

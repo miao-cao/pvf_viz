@@ -16,6 +16,9 @@
     <script src="assets/js/three/loaders/OBJLoader.js"></script>
     <script src="assets/js/three/loaders/MTLLoader.js"></script>
     <script src="assets/js/three/loaders/GLTFLoader.js"></script>
+    
+    <link rel="preload" href="assets/js/chart/chart.umd.min.js" as="script">
+    <script src="assets/js/chart/chart.umd.min.js"></script>
 
     <link rel="preload" href="assets/js/d3/d3.min.js" as="script">
     <script src="assets/js/d3/d3.min.js"></script>
@@ -136,9 +139,9 @@
                 <div class="mb-5">
                     <div class="mb-4 gap-2">
                         <label class="inline-block font-medium text-light/80 mb-2">IP address:</label>
-                        <input type="text" id="server_ip" placeholder="127.0.0.1" style="width: 25%; color: black; padding: 6px; border: 1px solid #cfcaca;">
+                        <input type="text" id="server_ip" placeholder="127.0.0.1" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
                         <label class="inline-block font-medium text-light/80 mb-2">Port:</label>
-                        <input type="number" id="server_port" placeholder="32123" style="width: 25%; color: black; padding: 6px; border: 1px solid #cfcaca;">
+                        <input type="number" id="server_port" placeholder="32123" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
                     </div>
                     <div class="text-sm text-gray-600 gap-2">
                         <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="setServerIPPort()">
@@ -225,7 +228,7 @@
                         <label class="block text-sm font-medium text-light/80 mb-1">Show PVF vectors</label>
                         <!-- Present PVF button -->
                         <div class="flex items-center">
-                            <input type="checkbox" id="show-vectors" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <input type="checkbox" id="show-vectors" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50", style="background-color: black; color: azure;">
                             <label for="show-vectors" class="ml-2 text-sm text-light/80">Show vectors</label>
                         </div>
                         <div class="flex items-center">
@@ -258,11 +261,11 @@
                         <label class="block text-sm font-medium text-light/80 mb-4">Streamline parameters</label>
                         <div class="flex items-center">
                             <label for="minPointNum">Min point number:</label>    
-                            <input type="number" id="minPointNum" name="numInput", style="color: black; padding: 6px; border: 1px solid #ccc;", min="0", max="50", value="2", step="1">
+                            <input type="number" id="minPointNum" name="numInput", style="background-color:black; color: azure; padding: 6px; border: 1px solid #ccc;", min="0", max="50", value="2", step="1">
                         </div>
                         <div class="flex items-center">
                             <label for="maxPointNum">Max point number:</label>    
-                            <input type="number" id="maxPointNum" name="numInput", style="color: black; padding: 6px; border: 1px solid #ccc;", min="5", max="150", value="15", step="1">
+                            <input type="number" id="maxPointNum" name="numInput", style="background-color: black; color: rgb(248, 248, 248); padding: 6px; border: 1px solid #ccc;", min="5", max="150", value="15", step="1">
                         </div>
                         
                         <div class="flex items-center">
@@ -2008,81 +2011,69 @@
         }
 
         function showTemporalModes(){
-            const curveDiv = document.createElement('div');
-            
-            // 2. 设置div的样式（宽度、高度、边框、背景等，保证容器可见）
-            curveDiv.classList.add(
-                                "absolute",
-                                "bottom-0.5",
-                                "left-1/2",
-                                "-translate-x-1/2",
-                                "w-[50rem]",
-                                "rounded-xl",
-                                "p-4",
-                                "border",
-                                "border-white/10",
-                                "mb-4");
-    
-            curveDiv.id = 'temporal-mode-container'; // 给div设置唯一id，便于后续操作
-            
-            // 3. 将div插入到页面中（此处插入到body末尾，可按需修改插入位置）
-            document.body.appendChild(curveDiv);
+            console.log(PVF_temporal_modes)
+            // 1. 创建Canvas元素（插入到chartContainer中）
+            const container = document.getElementById('chartContainer');
             const canvas = document.createElement('canvas');
-            
-            // 2. 设置canvas尺寸（宽高要适配div容器，避免超出）
-            canvas.width = 800; // 对应div的padding 20px，宽度=800-40=760
-            canvas.height = 400; // 高度=600-40=560
-            canvas.style.backgroundColor = '#ffffff';
-            canvas.style.borderRadius = '4px';
-            canvas.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-            
-            // 3. 将canvas插入到动态创建的div中
-            curveDiv.appendChild(canvas);
-            
-            // 4. 获取canvas的2D绘图上下文（核心，所有绘制操作都依赖该上下文）
-            const ctx = canvas.getContext('2d');
-            
-            // 5. 定义绘制配置：保证10条曲线样式不同（颜色、起始点、控制点不同）
-            const curveConfig = [
-                { color: '#ff0000', yBase: 50 },   // 曲线1：红色
-                { color: '#ff9900', yBase: 110 },  // 曲线2：橙色
-                { color: '#ffff00', yBase: 170 },  // 曲线3：黄色
-                { color: '#00ff00', yBase: 230 },  // 曲线4：绿色
-                { color: '#00ffff', yBase: 290 },  // 曲线5：青色
-                { color: '#0099ff', yBase: 350 },  // 曲线6：蓝色
-                { color: '#9900ff', yBase: 410 },  // 曲线7：紫色
-                { color: '#ff00ff', yBase: 470 },  // 曲线8：洋红
-                { color: '#666666', yBase: 530 },  // 曲线9：深灰
-                { color: '#000000', yBase: 590 }   // 曲线10：黑色（注意canvas高度，避免超出）
+            container.appendChild(canvas);
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+
+            // 2. 定义颜色数组（10种不同颜色，可自定义）
+            const lineColors = [
+                '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF',
+                '#00FFFF', '#FF7F00', '#7FFF00', '#00FF7F', '#7F00FF'
             ];
-            
-            // 6. 循环绘制10条二次贝塞尔曲线（简单易实现，适合快速展示）
-            curveConfig.forEach((config, index) => {
-                // 重置路径（避免多条曲线相互关联）
-                ctx.beginPath();
-                
-                // 设置曲线样式（颜色、线宽）
-                ctx.strokeStyle = config.color;
-                ctx.lineWidth = 2; // 曲线线宽，统一设置（可按需差异化）
-                
-                // 定义曲线坐标：
-                // moveTo(x1, y1)：起始点（从左侧开始，x=50，y基于配置的yBase）
-                // quadraticCurveTo(cpX, cpY, x2, y2)：二次贝塞尔曲线（控制点 + 结束点）
-                const startX = 50; // 起始点X坐标
-                const startY = config.yBase; // 起始点Y坐标
-                const controlX = canvas.width / 2; // 控制点X坐标（画布中间）
-                const controlY = startY - 80 + Math.random() * 160; // 控制点Y坐标（随机波动，让曲线形状不同）
-                const endX = canvas.width - 50; // 结束点X坐标（右侧）
-                const endY = config.yBase; // 结束点Y坐标（与起始点Y一致，保证水平对称）
-                
-                // 绘制路径：移动到起始点 -> 绘制二次贝塞尔曲线
-                ctx.moveTo(startX, startY);
-                ctx.quadraticCurveTo(controlX, controlY, endX, endY);
-                
-                // 描边（真正绘制出曲线，不描边仅定义路径，无法显示）
-                ctx.stroke();
+
+            // 3. 构造Chart.js所需数据格式
+            const chartData = {
+                labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
+                datasets: PVF_temporal_modes.map((line, index) => ({
+                    label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
+                    data: line.map(([x, y]) => ({ x, y })), // 转换为Chart.js支持的格式
+                    borderColor: lineColors[index], // 线条颜色
+                    backgroundColor: lineColors[index] + '33', // 填充颜色（透明，可选）
+                    borderWidth: 2, // 线条宽度
+                    fill: false, // 不填充线下区域
+                    tension: 0, // 折线（无平滑，如需平滑可设为0.4）
+                    point: { radius: 0 } // 隐藏数据点（300个点无需显示，提升性能）
+                }))
+            };
+
+            // 4. 配置Chart.js选项（背景透明、图例显示等）
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                backgroundColor: 'transparent', // 图表背景透明
+                plugins: {
+                    legend: {
+                        display: true, // 显示图例
+                        position: 'right', // 图例位置（右侧，可改为top/bottom/left）
+                        labels: {
+                            color: '#333', // 图例文字颜色
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: { enabled: true } // 鼠标悬浮提示（可选）
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }, // 隐藏x轴网格线（可选）
+                        ticks: { color: '#666' }
+                    },
+                    y: {
+                        grid: { color: '#eee' }, // y轴网格线（可选）
+                        ticks: { color: '#666' }
+                    }
+                }
+            };
+
+            // 5. 初始化图表并绘制
+            new Chart(canvas, {
+                type: 'line',
+                data: chartData,
+                options: chartOptions
             });
-            document.getElementById("vector-field-canvas").appendChild(curveDiv);
         }
 
         // 显示错误信息
