@@ -4,30 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3-D Velocity Field Visualisation</title>
-    <link rel="preload" href="https://cdn.tailwindcss.com" as="script" crossorigin>
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js" as="script" crossorigin>
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" as="script" crossorigin>
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js" as="script" crossorigin>
+    <!-- Here use locally stored ccs and js libs -->
+    <!-- 预加载本地CSS -->
+    <link rel="preload" href="assets/css/fontawesome-7.1.0-web/css/all.min.css" as="style">
+    <!-- 引入本地CSS -->
+    <link rel="stylesheet" href="assets/css/fontawesome-7.1.0-web/css/all.min.css">
+    
+    <link rel="preload" href="assets/js/three/three.min.js" as="script">
+    <script src="assets/js/three/three.min.js"></script>
+    <script src="assets/js/three/controls/OrbitControls.js"></script>
+
+    <link rel="preload" href="assets/js/d3/d3.min.js" as="script">
+    <script src="assets/js/d3/d3.min.js"></script>
+
+    <link rel="preload" href="assets/js/tailwindcss/tailwind.min.js" as="script">
+    <script src="assets/js/tailwindcss/tailwind.min.js"></script>
+
+    <!-- <link rel="preload" href="https://cdn.tailwindcss.com" as="script" crossorigin> -->
+    <!-- <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js" as="script" crossorigin> -->
+    <!-- <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" as="script" crossorigin> -->
+    <!-- <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js" as="script" crossorigin>
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js" as="script" crossorigin>
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js" as="script" crossorigin>
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js" as="script" crossorigin>
-    <link rel="preload" href="wx/js/brain-loader.js" as="script">
-    <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
-
-    <!-- 预加载CSS资源：as="style" 指定资源类型为样式表 -->
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" crossorigin>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js" as="script" crossorigin> -->
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script> -->
     <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
+     
+    <link rel="preload" href="wx/js/brain-loader.js" as="script">
+    <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
     <script src="wx/js/brain-loader.js"></script> 
     <script src="wx/js/brain-surface-viewer.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script>
         tailwind.config = {
@@ -2067,6 +2079,7 @@
                 // 描边（真正绘制出曲线，不描边仅定义路径，无法显示）
                 ctx.stroke();
             });
+            document.getElementById("vector-field-canvas").appendChild(curveDiv);
         }
 
         // 显示错误信息
