@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-D Velocity Field Visualisation</title>
+    <!-- Here use locally stored ccs and js libs -->
+    <!-- 预加载本地CSS -->
+    <link rel="preload" href="assets/css/fontawesome-7.1.0-web/css/all.min.css" as="style">
+    <!-- 引入本地CSS -->
+    <link rel="stylesheet" href="assets/css/fontawesome-7.1.0-web/css/all.min.css">
+    
+    <link rel="preload" href="assets/js/three/three.min.js" as="script">
+    <script src="assets/js/three/three.min.js"></script>
+    <script src="assets/js/three/controls/OrbitControls.js"></script>
+    <script src="assets/js/three/loaders/OBJLoader.js"></script>
+    <script src="assets/js/three/loaders/MTLLoader.js"></script>
+    <script src="assets/js/three/loaders/GLTFLoader.js"></script>
+    
+    <link rel="preload" href="assets/js/chart/chart.umd.min.js" as="script">
+    <script src="assets/js/chart/chart.umd.min.js"></script>
+
+    <link rel="preload" href="assets/js/d3/d3.min.js" as="script">
+    <script src="assets/js/d3/d3.min.js"></script>
+
+    <link rel="preload" href="assets/js/tailwindcss/tailwind.min.js" as="script">
+    <script src="assets/js/tailwindcss/tailwind.min.js"></script>
+
+    <!-- <link rel="preload" href="https://cdn.tailwindcss.com" as="script" crossorigin> -->
+    <!-- <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js" as="script" crossorigin> -->
+    <!-- <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" as="script" crossorigin> -->
+    <!-- <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js" as="script" crossorigin>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js" as="script" crossorigin>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js" as="script" crossorigin>
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js" as="script" crossorigin> -->
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script> -->
+    <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
+
+    <link rel="preload" href="wx/js/brain-loader.js" as="script">
+    <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
+    <script src="wx/js/brain-loader.js"></script> 
+    <script src="wx/js/brain-surface-viewer.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#8B5CF6',
+                        dark: '#03080b',            // '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .vector-field-container {
+                height: calc(100vh - 8rem);
+            }
+            .sidebar {
+                width: 500px;
+                transition: transform 0.3s ease-in-out;
+            }
+            .sidebar-collapsed {
+                transform: translateX(-320px);
+            }
+            .main-expanded {
+                margin-left: 0;
+            }
+            .panel-gradient {
+                background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+            }
+        }
+        .div-disabled {
+            filter: grayscale(100%);
+            opacity: 0.1;
+            pointer-events: none;
+            user-select: none;
+            /* background-color: #f5f5f5 !important; */
+        }
+    </style>
+</head>
+<body class="font-inter bg-dark text-light overflow-hidden">
+    <!-- Header -->
+    <header class="bg-dark/80 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-white/10">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <button id="sidebar-toggle" class="lg:hidden text-light p-2 rounded-full hover:bg-white/10 transition-colors">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="text-xl font-semibold text-light flex items-center gap-2">
+                    <i class="fas fa-cube text-primary"></i>
+                    <span>3-D Phave Velocity Field</span>
+                </h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button id="reset-view" class="text-light/80 hover:text-light transition-colors p-2 rounded-full hover:bg-white/10">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <button id="toggle-fullscreen" class="text-light/80 hover:text-light transition-colors p-2 rounded-full hover:bg-white/10">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button id="export-data" class="text-light/80 hover:text-light transition-colors p-2 rounded-full hover:bg-white/10">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-16 flex h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar fixed left-0 top-16 bottom-0 bg-dark/95 backdrop-blur-md border-r border-white/10 p-2 overflow-y-auto z-40">
+            <div class="space-y-6">
+                <!-- PVF data Browser -->
+                <div class="panel-gradient rounded-xl p-4 border border-white/10">
+                <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-database text-primary" aria-hidden="True"></i>
+                        Database
+                </h2>
+                <div class="mb-5">
+                    <div class="mb-4 gap-2">
+                        <label class="inline-block font-medium text-light/80 mb-2">IP address:</label>
+                        <input type="text" id="server_ip" placeholder="127.0.0.1" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
+                        <label class="inline-block font-medium text-light/80 mb-2">Port:</label>
+                        <input type="number" id="server_port" placeholder="32123" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
+                    </div>
+                    <div class="text-sm text-gray-600 gap-2">
+                        <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="setServerIPPort()">
+                            <i class="fas fa-database"></i>
+                            <span>Set database IP address and port</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-5">
+                    <div class="mb-4 gap-2">
+                        <label class="block text-sm font-medium text-light/80 mb-3">Subject List</label>
+                        <select id="subject-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">Loading subject names...</option>
+                        </select>
+                    </div>
+                    <div class="text-sm text-gray-600 gap-2">
+                        <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadSubjectList()">
+                            <i class="fas fa-list"></i>
+                            <span>Load Subjects</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- File Button -->
+                <div class="mb-4 gap-4">
+                    <div class="mb-4 gap-2">
+                        <label class="block text-sm font-medium text-light/80 mb-3">Meta Data File List</label>
+                        <select id="file-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50 gap-4">
+                            <option value="">Loading files...</option>
+                        </select>
+                    </div>
+                    <div class="text-sm text-gray-600 mb-3">
+                        <button id="load-file-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadFile()">
+                            <i class="fas fa-file" aria-hidden="true"></i>
+                            <span>Load Meta Data Files</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="selected-folder-info" class="mt-4 p-3 bg-blue-50 rounded-lg hidden">
+                    <h3 class="font-medium text-blue-800">Selected Folder:</h3>
+                    <p id="selected-folder-path" class="text-sm text-blue-700"></p>
+                </div>
+                
+                </div>
+
+                <!-- Vector Field Settings -->
+                <div class="panel-gradient rounded-xl p-4 border border-white/10">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-sliders-h text-primary"></i>
+                        Vector Field Settings
+                    </h2>
+                    
+                    <div class="space-y-4">                         
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Vector Scale</label>
+                            <input type="range" id="vector-scale" min="0.1" max="8" step="0.1" value="4" 
+                                class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Color Scheme</label>
+                            <select id="color-scheme" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="direction">Direction</option>
+                                <option value="temperature">Temperature Map</option>
+                                <option value="speed">Speed Magnitude</option>
+                                <option value="rainbow">Rainbow</option>
+                                <option value="grayscale">Grayscale</option>
+                                
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Vector Display</label>
+                            <select id="vector-display" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="arrows">Arrows</option>
+                                <option value="lines">Lines</option>
+                                <option value="tubes">Tubes</option>
+                            </select>
+                        </div>
+                        
+
+
+                        <label class="block text-sm font-medium text-light/80 mb-1">Show PVF vectors</label>
+                        <!-- Present PVF button -->
+                        <div class="flex items-center">
+                            <input type="checkbox" id="show-vectors" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-vectors" class="ml-2 text-sm text-light/80">Show vectors</label>
+                        </div>
+                        <div class="flex items-center">
+                            <button id="present-pvf" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadPVFVectorField()">
+                                <i class="fas fa-long-arrow-right"></i>
+                                <span>Present PVF</span>
+                            </button>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Show Grid</label>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="show-grid" checked 
+                                    class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                                <label for="show-grid" class="ml-2 text-sm text-light/80">Display coordinate grid</label>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                
+                <!-- Streamlines Settings -->
+                <div class="panel-gradient rounded-xl p-4 border border-white/10">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-wind text-primary"></i>
+                        Streamline settings
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <label class="block text-sm font-medium text-light/80 mb-4">Streamline parameters</label>
+                        <div class="flex items-center">
+                            <label for="minPointNum">Min point number:</label>    
+                            <input type="number" id="minPointNum" name="numInput", style="background-color:black; color: azure; padding: 6px; border: 1px solid #ccc;", min="0", max="50", value="2", step="1">
+                        </div>
+                        <div class="flex items-center">
+                            <label for="maxPointNum">Max point number:</label>    
+                            <input type="number" id="maxPointNum" name="numInput", style="background-color: black; color: rgb(248, 248, 248); padding: 6px; border: 1px solid #ccc;", min="5", max="150", value="15", step="1">
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input id="show-streamlines" type="checkbox" id="show-streamlines" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-streamlines" class="ml-2 text-sm text-light/80">Show streamlines</label>
+                        </div>
+                        <div class="flex items-center">
+                            <button id="present-streamlines" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="createStreamlines()">
+                                <i class="fas fa-bars"></i>
+                                <span>Present Streamlines</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Singularities Settings -->
+                <div class="panel-gradient rounded-xl p-4 border border-white/10">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-dot-circle text-primary"></i>
+                        Singular points and spatiotemporal modes
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="show-singularities" 
+                                class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-singularities" class="ml-2 text-sm text-light/80">Show Singular Points</label>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Singularity Scale</label>
+                            <input type="range" id="singularity-scale" min="0.1" max="2" step="0.1" value="1.0" 
+                                class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                        </div>
+
+                        <!-- Legend Container -->
+                        <div class="mt-3 border-t border-white/10 pt-3">
+                            <label class="block text-xs font-medium text-light/60 mb-2">Legend</label>
+                            <div id="singularity-legend" class="grid grid-cols-2 gap-2 text-xs">
+                                <!-- Legend items will be injected here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 border-t border-white/20 pt-3">
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-3">Spatiotemporal modes (PVF mode decomposition)</label>
+                            <select id="mode-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">Mode 1 Percentage explained:</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center border-t border-white/20 pt-3">
+                            <button id="present-modes" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadModeFields()">
+                                <i class="fas fa-bars"></i>
+                                <span>Present Mode Fields</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Animation Settings -->
+                <!-- <div class="panel-gradient rounded-xl p-4 border border-white/10 mb-4">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-play text-primary"></i>
+                        Animation
+                    </h2>
+                    
+                    <div class="space-y-6 mb-5">
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Time Frame</label>
+                            <input type="range" id="time-slider" min="0" max="100" value="0" 
+                                class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                            <div class="flex justify-between text-xs text-light/60 mt-1">
+                                <span id="time-slider-tmin">Tmin=</span>
+                                <span id="time-slider-ct">Curr Time=</span>
+                                <span id="time-slider-tmax">Tmax=</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px;">
+                            <button id="prev-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-1 px-4 transition-colors flex items-center justify-center gap-4" onclick="prevTimepoint()">
+                                <i class="fas fa-long-arrow-left"></i>
+                                <span>Prev Time</span>
+                            </button>
+                            <button id="next-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-1 px-4 transition-colors flex items-center justify-center gap-4" onclick="nextTimepoint()">
+                                <i class="fas fa-long-arrow-right"></i>
+                                <span>Next Time</span>
+                            </button>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button id="play-pause" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-play"></i>
+                                <span>Play</span>
+                            </button>
+                            <button id="reset-animation" class="flex-1 bg-white/10 hover:bg-white/20 text-light rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-redo"></i>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                </div> -->
+
+
+                <!-- Console box Settings -->
+                <div class="panel-gradient rounded-xl p-4 border border-white/10 mb-4">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-square text-primary"></i>
+                        Console box
+                    </h2>
+                    
+                    <div class="space-y-4 mb-5">
+                        <div>
+                            <div id="error-message" class="mt-4 p-3 bg-red-50 rounded-lg hidden">
+                                <h3 class="font-medium text-blue-800">Message:</h3>
+                                <p id="error-details" class="text-sm text-blue-700"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Present Streamlines button -->
+                    <!-- Present Singularity button -->
+                </div>
+            </div>
+            
+        </aside>
+
+        <!-- Visualization Area -->
+        <div id="visualization-container" class="flex-1 vector-field-container relative">
+            <canvas id="vector-field-canvas"></canvas>
+            
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center bg-dark/70 backdrop-blur-sm z-30">
+                <div class="text-center">
+                    <div class="inline-block w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+                    <p class="text-light/80">Loading PVF data...</p>
+                </div>
+            </div>
+            <!-- Time Overlay -->
+            <div id="stats-overlay" class="absolute top-4 left-1/2 bg-dark/70 backdrop-blur-sm rounded-lg p-3 border border-white/10 text-xs text-light/80", style="font-size: xx-large;">
+                <div class="flex items-center gap-2 mb-1">
+                    <!-- <i class="fas fa-info-circle text-primary"></i>
+                    <span class="font-large">Time</span> -->
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span>Current Time:</span>
+                        <span id="time-stat"></span>
+                    </div>
+
+                </div>
+            </div>
+            <!-- Stats Overlay -->
+            <div id="stats-overlay" class="absolute bottom-4 right-10 bg-dark/70 backdrop-blur-sm rounded-lg p-3 border border-white/10 text-xs text-light/80", style="font-size: large;">
+                <div class="flex items-center gap-2 mb-1">
+                    <i class="fas fa-info-circle text-primary"></i>
+                    <span class="font-medium">Vector Stats</span>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span>Resolution:</span>
+                        <span id="stats-resolution">8x8x8</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Vectors:</span>
+                        <span id="stats-vectors">512</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>CondA:</span>
+                        <span id="stats-conda">Inf</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Max Magnitude:</span>
+                        <span id="stats-max-magnitude">N/A</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>FPS:</span>
+                        <span id="stats-fps">0</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Time control module -->
+            <div id="time-control-module" class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[50rem] rounded-xl p-4 border border-white/10 mb-4">
+                <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                    <i class="fas fa-play text-primary"></i>
+                    Time control
+                </h2>
+                
+                <div class="space-y-6 mb-5">
+                    <div>
+                        <label class="block text-sm font-medium text-light/80 mb-1">Time Frame</label>
+                        <input type="range" id="time-slider" min="0" max="100" value="0" 
+                            class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                        <div class="flex justify-between text-xs text-light/60 mt-1">
+                            <span id="time-slider-tmin">Time min=</span>
+                            <span id="time-slider-ct">Current Time=</span>
+                            <span id="time-slider-tmax">Time max=</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button id="prev-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-1 px-4 transition-colors flex items-center justify-center gap-4" onclick="prevTimepoint()">
+                            <i class="fas fa-long-arrow-left"></i>
+                            <span>Prev Time</span>
+                        </button>
+                        <button id="next-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-1 px-4 transition-colors flex items-center justify-center gap-4" onclick="nextTimepoint()">
+                            <i class="fas fa-long-arrow-right"></i>
+                            <span>Next Time</span>
+                        </button>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button id="play-pause" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-play"></i>
+                            <span>Play</span>
+                        </button>
+                        <button id="reset-animation" class="flex-1 bg-white/10 hover:bg-white/20 text-light rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-redo"></i>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+                
+            </div>
+            <!-- Temporal mode plot canvas -->
+            <div id="time-mode-plot" class="absolute absolute top-3/4 left-1/2 -translate-x-1/2 w-[80rem] h-[30rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
+            </div>
+        </div>
+    </main>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 lg:hidden hidden"></div>
+
+    <script>
+        // DOM Elements
+        const serverIPAddress        = document.getElementById('server_ip');
+        const serverPortNumber       = document.getElementById('server_port');
+        const sidebarToggle          = document.getElementById('sidebar-toggle');
+        const sidebar                = document.getElementById('sidebar');
+        const sidebarOverlay         = document.getElementById('sidebar-overlay');
+        const visualizationContainer = document.getElementById('visualization-container');
+        const loadingIndicator       = document.getElementById('loading-indicator');
+        const resetViewBtn           = document.getElementById('reset-view');
+        const toggleFullscreenBtn    = document.getElementById('toggle-fullscreen');
+        const exportDataBtn          = document.getElementById('export-data');
+        const legendContainer        = document.getElementById('singularity-legend');
+        
+        // DOM elements for File Panel
+        const folderSelect       = document.getElementById('subject-select');
+        const fileSelect         = document.getElementById('file-select');
+        const modeSelect         = document.getElementById('mode-select');
+        const selectedFolderInfo = document.getElementById('selected-folder-info');
+        const selectedFolderPath = document.getElementById('selected-folder-path');
+        const errorMessage       = document.getElementById('error-message');
+        const errorDetails       = document.getElementById('error-details');
+
+        // time slider elements
+        const timeSliderTMin        = document.getElementById('time-slider-tmin');
+        const timeSliderTMax        = document.getElementById('time-slider-tmax');
+        const timeSliderCurrentTime = document.getElementById('time-slider-ct');
+        const timeSlider            = document.getElementById('time-slider');
+        const timeStat              = document.getElementById('time-stat');
+
+        // brainbrowser viewer
+        // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
+        let server_ip   = "127.0.0.1" // "127.0.0.1"  //"localhost" // "192.168.10.150"
+        let server_port = 32123
+        
+        // PVF variables
+        let subject_ID          = "";
+        let PVF_dimension       = 50;
+        let PVF_times           = [];
+        let PVF_num_time_points = 100;
+        let PVF_positions       = [];
+        let PVF_directions      = [];
+        let PVF_streamlines     = {};
+        let PVF_condA_data      = {};
+        let PVF_temporal_modes  = {};
+        let PVF_condA           = 0;
+        let PVF_pattern_data    = []; // Changed to array to hold current list of singularities
+        
+
+        let volume_size             = 50;       // where brain, vectors and streamlines reside
+        let streamlineWidth         = 0.1;      // 0.025 streamline tube width
+        let streamlinesGroup        = new THREE.Group();
+        let singularitiesGroup      = new THREE.Group(); // Group for singularities
+        let present_PVF             = false;
+        let present_streamlines     = false;
+        let present_singluar_points = false;
+        let minStreamlinePointNum   = 2
+        let maxStreamlinePointNum   = 15
+
+
+        let brainSurfaces = {
+            left : null,
+            right: null,
+        };
+        let brainLoader; // 声明brainLoader实例
+
+        // GUI parameters
+        t_min             = 0
+        t_max             = 99
+        current_timepoint = 0
+
+        // Three.js Scene Variables
+        let scene, camera, renderer, controls;
+        let vectorField     = [];
+        let modeVectorField = [];
+        let vectorObjects   = [];
+        let particles       = [];
+        let isAnimating     = false;
+        let lastTime        = 0;
+        let fps             = 0;
+        let gridHelper;
+        let animationId;
+
+        // const BufferGeometryUtils = require('three/addons/utils/BufferGeometryUtils.js');
+        
+        // Color map for Singularity types
+        const singularityColors = {
+            "REPEL_NODE"           : 0xff0000, // Red - Repelling Node (Source)
+            "ATTRACT_NODE"         : 0x00008B, // Dark blue - Attracting Node (Sink)
+            "REPEL_NODE_SADDLE"    : 0xff00ff, // Magenta - Repelling node Saddle
+            "REPEL_SPIRAL_SADDLE"  : 0x800000, // Maroon - Repelling spiral saddle
+            "ATTRACT_NODE_SADDLE"  : 0x00ffff, // Cyan - Attracting nodde Saddle
+            "ATTRACT_SPIRAL_SADDLE": 0x0000FF, // Blue - Attracting spiral Saddle
+            "REPEL_SPIRAL"         : 0xA52A2A, // Brown - Repelling Spiral
+            "ATTRACT_SPIRAL"       : 0xADD8E6, // Light Blue - Attracting Spiral
+            "center"               : 0xC0C0C0, // Silver - Center
+            "default"              : 0x808080, // Grey - Unknown
+        };
+
+        const singularityLabels = {
+
+            "REPEL_NODE"           : "REPEL NODE", // Red - Repelling Node (Source)
+            "ATTRACT_NODE"         : "ATTRACT NODE", // Green - Attracting Node (Sink)
+            "REPEL_NODE_SADDLE"    : "REPEL NODE SADDLE", // Magenta - Repelling Saddle
+            "REPEL_SPIRAL_SADDLE"  : "REPEL SPIRAL SADDLE",
+            "ATTRACT_NODE_SADDLE"  : "ATTRACT NODE SADDLE", // Cyan - Attracting Saddle
+            "ATTRACT_SPIRAL_SADDLE": "ATTRACT SPIRAL SADDLE", //
+            "REPEL_SPIRAL"         : "REPEL SPIRAL", // Yellow - Spiral
+            "ATTRACT_SPIRAL"       : "ATTRACT SPIRAL", // Yellow - Spiral
+            "CENTER"               : "CENTRE", // White - Center
+            "default"              : "UNKNOWN"      // Grey - Unknown
+        };
+
+        // Settings
+        let settings = {
+            fieldType        : 'random',
+            resolution       : 20,
+            vectorScale      : 2,
+            showGrid         : true,
+            colorScheme      : 'direction',
+            vectorDisplay    : 'arrows',
+            showStreamlines  : true,
+            animationSpeed   : 1,
+            particleCount    : 100,
+            showSingularities: false,
+            singularityScale : 1.0
+        };
+        class CustomCurve extends THREE.Curve {
+            /**
+             * 构造函数：接收Vector3列表初始化曲线（无任何插值）
+             * @param {THREE.Vector3[]} vector3List - 3D顶点列表（必传，至少2个顶点）
+             */
+            constructor(vector3List) {
+                super(); // 调用父类THREE.Curve3的构造函数
+                
+                // 严格验证输入参数的合法性
+                if (!Array.isArray(vector3List) || vector3List.length < 2) {
+                    throw new Error("CustomCurve：vector3List必须是包含至少2个THREE.Vector3的数组");
+                }
+                if (!vector3List.every(item => item instanceof THREE.Vector3)) {
+                    throw new Error("CustomCurve：vector3List中的所有元素必须是THREE.Vector3实例");
+                }
+                
+                // 深拷贝保存原始Vector3列表，避免外部修改影响曲线内部数据（完全保留原始顶点）
+                this.vector3List = vector3List.map(point => new THREE.Vector3().copy(point));
+                // 原始顶点总数和线段总数（顶点数-1）
+                this.pointCount = this.vector3List.length;
+                this.segmentCount = this.pointCount - 1;
+            }
+
+            /**
+             * 重写核心方法：getPoint(t)，无任何插值，仅映射原始顶点
+             * @param {number} t - 曲线进度，范围[0, 1]
+             * @param {THREE.Vector3} [optionalTarget] - 可选目标向量，减少内存分配
+             * @returns {THREE.Vector3} 对应进度t的原始3D顶点（无任何插值计算）
+             */
+            getPoint(t, optionalTarget = new THREE.Vector3()) {
+                // 1. 确保t的范围严格在[0, 1]之间，避免数组越界
+                t = THREE.MathUtils.clamp(t, 0, 1);
+                
+                // 2. 情况1：t=1（终点），直接返回最后一个原始顶点
+                if (t === 1) {
+                    return optionalTarget.copy(this.vector3List[this.pointCount - 1]);
+                }
+                
+                // 3. 情况2：计算t对应的原始顶点索引（无插值，仅映射）
+                // 每个顶点对应的进度区间：均匀分配[0,1]进度到所有原始顶点
+                const pointIndex = Math.floor(t * this.pointCount);
+                // 安全边界：确保索引不超过最后一个顶点的索引
+                const safePointIndex = Math.min(pointIndex, this.pointCount - 1);
+                
+                // 4. 直接返回对应的原始顶点（无任何插值、无任何过渡计算）
+                // 仅返回原始列表中的顶点，不生成任何新坐标点
+                return optionalTarget.copy(this.vector3List[safePointIndex]);
+            }
+        }
+        
+        // Initialize the application
+        function init() {
+            // Setup sidebar toggle
+            sidebarToggle.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+            
+            // Setup event listeners for settings changes
+            setupSettingsListeners();
+            
+            // Setup Three.js scene
+            setupThreeJS();
+            
+            // Create vector objects
+            createVectorObjects();
+
+            // 初始化BrainLoader
+            brainLoader = new BrainLoader(scene);
+            
+            // Add singularity group to scene
+            scene.add(singularitiesGroup);
+
+            // Populate Legend
+            createLegend();
+            
+            // Setup stats
+            updateStats();
+            
+            // Start animation loop
+            animate();
+            
+            // // Hide loading indicator
+            setTimeout(() => {
+                loadingIndicator.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingIndicator.classList.add('hidden');
+                }, 300);
+            }, 800);
+
+            serverIPAddress.value = server_ip;
+            serverPortNumber.value = server_port;
+            loadSubjectList();
+        }
+        
+        // Toggle sidebar
+        function toggleSidebar() {
+            sidebar.classList.toggle('sidebar-collapsed');
+            sidebarOverlay.classList.toggle('hidden');
+        }
+        
+        // Setup Three.js scene
+        function setupThreeJS() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x03080b); // THREE.Color(0x1E293B);0x03080b
+            // scene.rotation.x = Math.PI / 2; // Tilt the scene for better view
+            // scene.rotation.y = Math.PI / 2; // Tilt the scene for better view
+            scene.rotation.x = Math.PI / 2 * -1; // Tilt the scene for better view
+            // scene.rotation.z = Math.PI / 8 * -1; // Tilt the scene for better view
+            // scene.rotation.y = Math.PI / 2 * -1; // Tilt the scene for better view
+
+            // Create camera
+            camera = new THREE.PerspectiveCamera(
+                60, 
+                visualizationContainer.clientWidth / visualizationContainer.clientHeight, 
+                0.1, 
+                1000
+            );
+            camera.position.set(0, 300, 0);
+            camera.lookAt(0, 0, 0);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('vector-field-canvas'),
+                antialias: true,
+                alpha: true,
+                powerPreference: 'high-performance',
+            });
+
+            // 这是默认行为，通常不需要手动设置
+            renderer.autoClear = true; 
+
+            // 你也可以更精细地控制清除哪些缓冲区
+            renderer.clearColor   = true;  // clear colour buffer
+            renderer.clearDepth   = true;  // clear depth buffer
+            renderer.clearStencil = true;  // clear stencil buffer
+            renderer.setSize(visualizationContainer.clientWidth, visualizationContainer.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.capabilities.getMaxAnisotropy(); // 利用各向异性过滤提升纹理质量（按需使用）
+            
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+            
+            // Add grid helper
+            gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
+            scene.add(gridHelper);
+            
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.addEventListener('change', () => {
+                // Update stats when camera moves
+                updateStats();
+            });
+            
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // 👇 取消所有旋转角度限制（核心配置）
+            controls.minPolarAngle = -Infinity;    // 垂直方向最小角度（无下限）
+            controls.maxPolarAngle = Infinity;     // 垂直方向最大角度（无上限）
+            controls.minAzimuthAngle = -Infinity;  // 水平方向最小角度（无下限）
+            controls.maxAzimuthAngle = Infinity;   // 水平方向最大角度（无上限）
+
+            // 可选：确保旋转功能完全开启，提升操作顺滑度
+            controls.enableRotate = true;          // 强制开启旋转（默认已开）
+            controls.rotateSpeed = 1.5;            // 提高旋转灵敏度（按需调整）
+            controls.screenSpacePanning = true;   // 保持轨道式平移，适配无限制旋转
+
+
+            controls.addEventListener('change', () => {
+                // Update stats when camera moves
+                updateStats();
+            });
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            // Reset view button
+            resetViewBtn.addEventListener('click', resetView);
+            
+            // Toggle fullscreen button
+            toggleFullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // Export data button
+            exportDataBtn.addEventListener('click', exportVectorFieldData);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = visualizationContainer.clientWidth / visualizationContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(visualizationContainer.clientWidth, visualizationContainer.clientHeight);
+        }
+        
+        // Reset camera view
+        function resetView() {
+            camera.position.set(10, 10, 10);
+            camera.lookAt(0, 0, 0);
+            controls.reset();
+        }
+        
+        // Toggle fullscreen
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+        
+        // Setup settings listeners
+        function setupSettingsListeners() {
+            timeSlider.min                  = t_min;
+            timeSlider.max                  = t_max;
+            const times_tmin        = t_min;
+            const times_tmax        = t_max;
+            const times_currenttime = 0;
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
+            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+            timeStat.innerHTML = times_currenttime.toFixed(2);
+            
+            // Vector scale
+            document.getElementById('vector-scale').addEventListener('input', (e) => {
+                settings.vectorScale = parseFloat(e.target.value);
+                updateVectorObjects();
+            });
+            
+            // Show grid
+            document.getElementById('show-grid').addEventListener('change', (e) => {
+                settings.showGrid = e.target.checked;
+                gridHelper.visible = settings.showGrid;
+            });
+            
+            // Color scheme
+            document.getElementById('color-scheme').addEventListener('change', (e) => {
+                settings.colorScheme = e.target.value;
+                updateVectorObjects();
+            });
+            
+            // Vector display
+            document.getElementById('vector-display').addEventListener('change', (e) => {
+                settings.vectorDisplay = e.target.value;
+                updateVectorObjects();
+            });
+
+            document.getElementById('show-vectors').addEventListener('change', (e) => {
+                present_PVF = e.target.checked;
+                // console.log(present_PVF)
+                if (present_PVF == true){
+                    loadPVFVectorField();
+                }else{
+                    removeVectorObjects();
+                }
+            });
+            
+
+            // Singularity Settings
+            document.getElementById('show-singularities').addEventListener('change', (e) => {
+                settings.showSingularities = e.target.checked;
+                singularitiesGroup.visible = settings.showSingularities;
+            });
+
+            document.getElementById('singularity-scale').addEventListener('input', (e) => {
+                settings.singularityScale = parseFloat(e.target.value);
+                createSingularities(); // Redraw with new scale
+            });
+
+            document.getElementById('minPointNum').addEventListener('input', (e) => {
+                minStreamlinePointNum = parseFloat(e.target.value);
+                // console.log(minStreamlinePointNum);
+            });
+            document.getElementById('maxPointNum').addEventListener('input', (e) => {
+                maxStreamlinePointNum = parseFloat(e.target.value);
+                //  console.log(maxStreamlinePointNum);
+            });
+
+            document.getElementById('show-streamlines').addEventListener('change', (e) => {
+                present_streamlines = e.target.checked;
+                // createSingularities();
+                if (present_streamlines == true){
+                    createStreamlines();
+                }else{
+                    removeStreamlines();
+                }
+                               
+            });
+
+            document.getElementById('time-slider').addEventListener('change', (e) => {
+                current_timepoint               = e.target.value;
+                const times_currenttime = PVF_times[current_timepoint];
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
+
+                updatePVFStreamlines();
+                showError(current_timepoint)
+                // updateVectorObjects();
+            });
+                        
+            // Play/pause animation
+            document.getElementById('play-pause').addEventListener('click', toggleAnimation);
+            
+            // Reset animation
+            document.getElementById('reset-animation').addEventListener('click', resetAnimation);
+        }
+
+
+        function setServerIPPort(){
+            server_ip   = serverIPAddress.value
+            server_port = serverPortNumber.value
+            showError(`Set server IP address: ${server_ip}, port number: ${server_port}`);
+        }
+
+        // load PVF vector field
+        function loadPVFVectorField() {
+            removeVectorObjects();
+            removeStreamlines();
+
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+
+            vectorField = [];
+            settings.resolution = PVF_dimension;
+            const size = PVF_dimension;
+            const spacing = volume_size / (size - 1);
+            // Show loading indicator            
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+
+
+             for (let i = 0; i < PVF_positions.length; i++) {
+                // vector position
+                const x = PVF_positions[i][0];
+                const y = PVF_positions[i][1];
+                const z = PVF_positions[i][2];
+                // vector direction
+                vx = PVF_directions[i][0];
+                vy = PVF_directions[i][1];
+                vz = PVF_directions[i][2];
+
+                // normalize vector
+                const magnitude = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                // if (magnitude > 0) {
+                //     vx /= magnitude;
+                //     vy /= magnitude;
+                //     vz /= magnitude;
+                // }
+            
+                vectorField.push({
+                    position: new THREE.Vector3(x, y, z),
+                    direction: new THREE.Vector3(vx, vy, vz),
+                    magnitude: magnitude
+                });
+             }
+
+            present_PVF = true;
+            createVectorObjects()
+            updateVectorObjects()
+            // Update controls
+            controls.update();
+            
+            // loadingIndicator.classList.remove('hidden', 'opacity-0');
+            
+            // Render scene
+            renderer.render(scene, camera);
+
+
+            
+            // showError("PVF vector field loaded successfully");
+            // Hide loading indicator
+            loadingIndicator.classList.add('opacity-0', 'hidden');
+            const time_control_div = document.getElementById("time-control-module");
+            time_control_div.classList.remove("div-disabled");
+
+            const showVectorsCheckbox = document.getElementById("show-vectors");
+            showVectorsCheckbox.checked = true;
+            
+            
+        }
+
+        async function updatePVFStreamlines() {
+            // loadingIndicator.classList.remove('hidden', 'opacity-0');
+            subject = folderSelect.value;
+            file = fileSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/update-PVF-streamlines?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${current_timepoint}`);
+                
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
+            }
+            
+            const data = await response.json();
+            PVF_positions    = data.pvf_positions;
+            PVF_directions   = data.pvf_directions;
+            PVF_times        = data.times;
+            PVF_condA        = data.condA;
+            PVF_pattern_data = data.patterns;
+            PVF_streamlines  = data.streamlines;
+
+            // Update PVF vectors
+            if (present_PVF == true){
+                removeVectorObjects();
+                loadPVFVectorField();
+            };
+            
+            // Update Singularities
+            if (settings.showSingularities == true){
+                createSingularities();
+            }
+            
+
+            // Update streamlines
+            if (present_streamlines == true){
+                // function animate() {
+                //     requestAnimationFrame(animate);
+                //     // removeStreamlines();
+                //     createStreamlines();
+                //     controls.update();
+                //     renderer.render(scene, camera);
+                // }
+                // animate();
+                createStreamlines();
+            }else{
+                removeStreamlines()
+            };
+            // loadingIndicator.classList.add('hidden', 'opacity-0');
+        };
+        
+        function createLegend() {
+            legendContainer.innerHTML = '';
+            
+            // Iterate over colors and create legend items
+            for (const [key, colorHex] of Object.entries(singularityColors)) {
+                // Skip default if you want
+                const label = singularityLabels[key] || key;
+                const cssColor = '#' + colorHex.toString(16).padStart(6, '0');
+                
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-2';
+                item.innerHTML = `
+                    <div class="w-3 h-3 rounded-full" style="background-color: ${cssColor}; box-shadow: 0 0 5px ${cssColor}"></div>
+                    <span class="text-light/80 text-xs">${label}</span>
+                `;
+                legendContainer.appendChild(item);
+            }
+        }
+
+        // Function to create/update singularities
+        function createSingularities() {
+            present_singluar_points = true
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+            // Clear existing singularities
+            while(singularitiesGroup.children.length > 0){ 
+                singularitiesGroup.remove(singularitiesGroup.children[0]); 
+            }
+
+            if (!PVF_pattern_data || PVF_pattern_data.length === 0) {
+                return;
+            }
+
+
+            PVF_pattern_data.forEach(singularity => {
+                const type = singularity.type;
+                const coord = singularity.coordinate; // [x, y, z] grid indices
+                const extent = singularity.spatial_extent;
+                
+                // Determine color
+                const color = singularityColors[type] || singularityColors["default"];
+                
+                // Determine scale based on spatial_extent and user setting
+                // extent represents the radius in grid units
+                // const radius = extent * settings.singularityScale; 
+                const radius = extent * 5; 
+
+                // Create a group for the singularity visual components
+                const group = new THREE.Group();
+                group.position.set(
+                    coord[0], 
+                    coord[1], 
+                    coord[2]
+                );
+
+
+                const geometry = new THREE.SphereGeometry(radius, 32, 32);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.2,
+                    transparent: true,
+                    opacity: 0.4,
+                    shininess: 100,
+                    depthWrite: false
+                });
+                const sphere = new THREE.Mesh(geometry, material);
+                group.add(sphere);
+
+                const coreGeo = new THREE.SphereGeometry(radius * 0.25, 16, 16); 
+                const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); 
+                const core = new THREE.Mesh(coreGeo, coreMat);
+                group.add(core);
+
+
+                const wireGeo = new THREE.WireframeGeometry(geometry);
+                const wireMat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.3 });
+                const wireframe = new THREE.LineSegments(wireGeo, wireMat);
+
+                wireframe.scale.set(1.02, 1.02, 1.02);
+                group.add(wireframe);
+
+                singularitiesGroup.add(group);
+            });
+            
+            showError(`Loaded ${PVF_pattern_data.length} singularities`);
+        }
+
+        // 添加新函数用于加载大脑皮层
+        async function loadBrainSurfaces(subject) {
+            try {
+                // 显示加载指示器
+                loadingIndicator.classList.remove('hidden', 'opacity-0');
+                
+                // 调用API获取表面文件路径
+                const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-surfaces-obj?subject=${encodeURIComponent(subject)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to get brain surfaces (${response.status})`);
+                }
+                
+                const data = await response.json();
+                
+
+                if (brainSurfaces.left) {
+                    const oldObj = brainSurfaces.left.mesh || brainSurfaces.left;
+                    scene.remove(oldObj);
+                    
+
+                    if (oldObj.geometry) oldObj.geometry.dispose();
+                    if (oldObj.material) {
+                        if (Array.isArray(oldObj.material)) {
+                            oldObj.material.forEach(m => m.dispose());
+                        } else {
+                            oldObj.material.dispose();
+                        }
+                    }
+                }
+                if (brainSurfaces.right) {
+                    const oldObj = brainSurfaces.right.mesh || brainSurfaces.right;
+                    scene.remove(oldObj);
+                    
+                    if (oldObj.geometry) oldObj.geometry.dispose();
+                    if (oldObj.material) {
+                        if (Array.isArray(oldObj.material)) {
+                            oldObj.material.forEach(m => m.dispose());
+                        } else {
+                            oldObj.material.dispose();
+                        }
+                    }
+                }
+                
+                // 加载左半球
+                if (data.lh_surface) {
+                    // brainSurfaces.left = await brainLoader.loadOBJModel(data.lh_surface, {
+                    //     color: 0x222222,
+                    //     opacity: 0.25,
+                    //     wireframe: false
+                    // });
+                    console.log("Loading left hemisphere surface from:", data.lh_surface);
+                    const meshOrObj = await brainLoader.loadSurfObj(data.lh_surface, {
+                        color: 0x222222,
+                        opacity: 0.25,
+                        wireframe: false,
+                        transparent: true,
+                        depthWrite: false
+                    });
+                    
+                    // Handle different return types (mesh or object wrapper)
+                    brainSurfaces.left = meshOrObj.mesh ? meshOrObj.mesh : meshOrObj;
+
+                    // Ensure material properties are set correctly to avoid occlusion
+                    if (brainSurfaces.left.material) {
+                        brainSurfaces.left.material.transparent = true;
+                        brainSurfaces.left.material.depthWrite = false; // Key fix
+                    }
+                }
+                
+                // 加载右半球
+                if (data.rh_surface) {
+                    // brainSurfaces.right = await brainLoader.loadOBJModel(data.rh_surface, {
+                    //     color: 0x222222,
+                    //     opacity: 0.25,
+                    //     wireframe: false
+                    // });
+                    const meshOrObj = await brainLoader.loadSurfObj(data.rh_surface, {
+                        color: 0x222222,
+                        opacity: 0.25,
+                        wireframe: false,
+                        transparent: true,
+                        depthWrite: false
+                    });
+
+                    // Handle different return types
+                    brainSurfaces.right = meshOrObj.mesh ? meshOrObj.mesh : meshOrObj;
+
+                    // Ensure material properties are set correctly to avoid occlusion
+                    if (brainSurfaces.right.material) {
+                        brainSurfaces.right.material.transparent = true;
+                        brainSurfaces.right.material.depthWrite = false; // Key fix
+                    }
+                }
+                
+                showError(`Successfully loaded brain surfaces for ${subject}`);
+                loadingIndicator.classList.add('hidden', 'opacity-0');
+                
+            } catch (error) {
+                console.error('Error loading brain surfaces:', error);
+                showError(`Failed to load brain surfaces: ${error.message}`);
+                loadingIndicator.classList.add('hidden', 'opacity-0');
+            }
+        }
+
+        // Create vector objects in the scene
+        function createVectorObjects() {
+            // Clear existing vector objects
+            removeVectorObjects();
+            
+            if (present_PVF == true){
+                // Create new vector objects based on settings
+                const scale = settings.vectorScale;
+                
+                vectorField.forEach(vector => {
+                    let vectorObject;
+                    
+                    switch (settings.vectorDisplay) {
+                        case 'arrows':
+                            // Create arrow helper for each vector
+                            const arrowHelper = new THREE.ArrowHelper(
+                                vector.direction.clone().normalize(), // vector.direction.clone().multiplyScalar(scale),
+                                vector.position,
+                                vector.magnitude * scale * 1.5,
+                                getVectorColor(vector)
+                            );
+                            vectorObject = arrowHelper;
+                            vectorObject.setLength(1.2 * scale * vector.magnitude, 0.4 * scale, 0.2 * scale);
+                            break;
+                            
+                        case 'lines':
+                            // Create line for each vector
+                            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                                vector.position,
+                                vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
+                            ]);
+                            const lineMaterial = new THREE.LineBasicMaterial({
+                                color: getVectorColor(vector),
+                                linewidth: 2
+                            });
+                            vectorObject = new THREE.Line(lineGeometry, lineMaterial);
+                            break;
+                            
+                        case 'tubes':
+                            // Create tube for each vector
+                            const tubeGeometry = new THREE.CylinderGeometry(
+                                0.05 * scale, 0.15 * scale, 1.5 * scale, 12
+                            );
+                            const tubeMaterial = new THREE.MeshStandardMaterial({
+                                color: getVectorColor(vector),
+                                roughness: 0.8,
+                                metalness: 0.2
+                            });
+                            vectorObject = new THREE.Mesh(tubeGeometry, tubeMaterial);
+                            
+                            // Position and orient the tube
+                            vectorObject.position.copy(vector.position);
+                            vectorObject.position.add(vector.direction.clone().multiplyScalar(0.75 * scale));
+                            
+                            const quaternion = new THREE.Quaternion();
+                            quaternion.setFromUnitVectors(
+                                new THREE.Vector3(0, 1, 0),
+                                vector.direction.clone().normalize()
+                            );
+                            vectorObject.setRotationFromQuaternion(quaternion);
+                            break;
+                    }
+                    
+                    scene.add(vectorObject);
+                    vectorObjects.push(vectorObject);
+                });
+                renderer.render(scene, camera);
+            };
+
+        }
+        
+        // Update existing vector objects
+        function updateVectorObjects() {
+
+            if (present_PVF == true){
+                const scale = settings.vectorScale;
+                
+                vectorField.forEach((vector, index) => {
+                    const vectorObject = vectorObjects[index];
+                    
+                    // Update color
+                    if (vectorObject.material) {
+                        if (vectorObject.material.color) {
+                            vectorObject.material.color.set(getVectorColor(vector));
+                        }
+                    } else if (vectorObject.setColor) {
+                        vectorObject.setColor(getVectorColor(vector));
+                    }
+                    
+                    // Update scale and position based on display type
+                    length 
+                    switch (settings.vectorDisplay) {
+                        case 'arrows':
+                            vectorObject.setLength(1.5 * scale * vector.magnitude, 0.2 * scale, 0.1 * scale);
+                            break;
+                            
+                        case 'lines':
+                            vectorObject.geometry.setFromPoints([
+                                vector.position,
+                                vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
+                            ]);
+                            break;
+                            
+                        case 'tubes':
+                            vectorObject.scale.set(1, 1.5 * scale, 1);
+                            vectorObject.position.copy(vector.position);
+                            vectorObject.position.add(vector.direction.clone().multiplyScalar(0.75 * scale));
+                            break;
+                    }
+                });
+            }else{
+                removeVectorObjects()
+            }
+
+        }
+        
+        // Remove vector objects from the scene
+        function removeVectorObjects() {
+            vectorObjects.forEach(object => {
+                
+                // while (object.children.length > 0) {
+                //     scene.remove(object.children[0]);
+                // }
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) object.material.dispose();
+                scene.remove(object);
+            });
+            vectorObjects = [];
+        }
+        
+        // Get color for a vector based on settings
+        function getVectorColor(vector) {
+            const magnitude = vector.magnitude;
+            
+            switch (settings.colorScheme) {
+                case 'speed':
+                    // Color based on magnitude (speed)
+                    return new THREE.Color().setHSL(0.4 - (magnitude / 5), 1, 0.5);
+                    
+                case 'direction':
+                    // Color based on direction
+                    return new THREE.Color().setHSL(
+                        (Math.atan2(vector.direction.z, vector.direction.x) + Math.PI) / (2 * Math.PI),
+                        1,
+                        0.5 + (vector.direction.y + 1) / 4
+                    );
+                    
+                case 'temperature':
+                    // Temperature map (blue to red)
+                    return new THREE.Color().setHSL(0.6 - (magnitude / 10), 1, 0.5);
+                    
+                case 'rainbow':
+                    // Rainbow colors based on position
+                    return new THREE.Color().setHSL(
+                        (vector.position.x + 10) / 40 + 
+                        (vector.position.y + 10) / 40 + 
+                        (vector.position.z + 10) / 40,
+                        1,
+                        0.5
+                    );
+                    
+                case 'grayscale':
+                    // Grayscale based on magnitude
+                    return new THREE.Color().setRGB(
+                        0.3 + (magnitude / 5),
+                        0.3 + (magnitude / 5),
+                        0.3 + (magnitude / 5)
+                    );
+            }
+        }
+        
+
+        // Find nearest vector in the field to a given position
+        function findNearestVector(x, y, z) {
+            let nearestVector = vectorField[0];
+            let minDistance = Infinity;
+            
+            vectorField.forEach(vector => {
+                const distance = Math.sqrt(
+                    Math.pow(x - vector.position.x, 2) +
+                    Math.pow(y - vector.position.y, 2) +
+                    Math.pow(z - vector.position.z, 2)
+                );
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestVector = vector;
+                }
+            });
+            
+            return nearestVector;
+        }
+        
+        // Toggle animation
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            const playPauseBtn = document.getElementById('play-pause');
+            
+            if (isAnimating) {
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
+                if (settings.showStreamlines && !this.particles) {
+                    // createParticles();
+                }
+            } else {
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
+            }
+        }
+        
+        // Reset animation
+        function resetAnimation() {
+            if (this.particles) {
+                const positions = this.particles.geometry.attributes.position.array;
+                
+                // Reset particles to random positions
+                for (let i = 0; i < settings.particleCount; i++) {
+                    const i3 = i * 3;
+                    positions[i3] = Math.random() * 20 - 10;  // x
+                    positions[i3 + 1] = Math.random() * 20 - 10;  // y
+                    positions[i3 + 2] = Math.random() * 20 - 10;  // z
+                    
+                    // Clear trail history
+                    this.particles.trailHistory[i] = [];
+                }
+                
+                this.particles.geometry.attributes.position.needsUpdate = true;
+                
+                // Remove trail lines
+                if (this.particles.trailLines) {
+                    this.particles.trailLines.forEach(line => {
+                        scene.remove(line);
+                        line.geometry.dispose();
+                        line.material.dispose();
+                    });
+                    this.particles.trailLines = [];
+                }
+            }
+        }
+        
+        // Update stats display
+        function updateStats() {
+            document.getElementById('stats-resolution').textContent = 
+                `${settings.resolution}x${settings.resolution}x${settings.resolution}`;
+            
+            document.getElementById('stats-vectors').textContent = 
+                vectorField.length;
+            
+            // Calculate max magnitude
+            const maxMagnitude = vectorField.reduce((max, vector) => {
+                return Math.max(max, vector.magnitude);
+            }, 0);
+
+            document.getElementById('stats-max-magnitude').textContent = 
+                maxMagnitude.toFixed(2);
+            
+            document.getElementById('stats-conda').textContent = 
+                PVF_condA.toFixed(2);
+            
+            document.getElementById('stats-fps').textContent = 
+                Math.round(fps);
+        }
+        
+        // Export vector field data
+        function exportVectorFieldData() {
+            // Prepare data in a format suitable for export
+            const exportData = {
+                settings: settings,
+                vectors: vectorField.map(vector => {
+                    return {
+                        position: {
+                            x: vector.position.x,
+                            y: vector.position.y,
+                            z: vector.position.z
+                        },
+                        direction: {
+                            x: vector.direction.x,
+                            y: vector.direction.y,
+                            z: vector.direction.z
+                        },
+                        magnitude: vector.magnitude
+                    };
+                })
+            };
+            
+            // Create JSON blob
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            
+            // Create download link
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vector-field-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+        }
+        
+        // Animation loop
+        function animate(timestamp) {
+            // Calculate FPS
+            if (lastTime) {
+                const delta = timestamp - lastTime;
+                fps = 1000 / delta;
+            }
+            lastTime = timestamp;
+            
+            // Update controls
+            controls.update();
+            
+            // Update particles if animation is enabled
+            
+            // Render scene
+            renderer.render(scene, camera);
+            
+            // Continue animation loop
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+        // 页面加载时加载根目录文件夹
+        
+        // Clean up when window is closed
+        window.addEventListener('beforeunload', () => {
+            cancelAnimationFrame(animationId);
+            if (renderer) {
+                renderer.dispose();
+            }
+        });
+        
+        // streamlines
+        function removeStreamlines() {
+            renderer.clear();
+            if (!streamlinesGroup) return;
+            
+            if (streamlinesGroup) {
+                streamlinesGroup.traverse((obj) => {
+                    // 释放几何体
+                    if (obj.geometry) {
+                        obj.geometry.dispose();
+                    }
+
+                    // 释放材质（处理数组或单个材质）
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) {
+                            obj.material.forEach((mat) => mat.dispose());
+                        } else {
+                            obj.material.dispose();
+                        }
+                    }
+
+                    // 释放纹理（若材质中包含纹理）
+                    if (obj.material && obj.material.map) {
+                        obj.material.map.dispose();
+                    }
+                });
+                scene.remove(streamlinesGroup);
+                streamlinesGroup.clear();
+                // streamlinesGroup = null;
+            }
+        };
+
+        function createStreamlines() {
+
+            // clear streamlines from previous frame
+            removeStreamlines();
+            document.getElementById('show-streamlines').checked = true;
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+            present_streamlines = true;
+
+            if (present_streamlines == true){
+                streamlinesGroup = new THREE.Group();
+                streamlinesGroup.name = 'PVFstreamlines';
+                scene.add(streamlinesGroup);
+
+                // 颜色定义：起始红色，结束蓝色
+                // const startColor = new THREE.Color(0xff0000); // 红色
+                // const endColor = new THREE.Color(0x0000ff);   // 蓝色
+
+                const startColor = new THREE.Color(0xff0000);    // 红
+                const midColor = new THREE.Color(0xffffff);  // 白
+                const endColor = new THREE.Color(0x0000ff);   // 蓝
+
+                num_streamlines = PVF_streamlines.length;
+                showError(`Number of streamlines: ${num_streamlines}`)
+
+                
+                for (i=0; i < num_streamlines; i++){
+                    // 1. 计算流线轨迹（使用RK4数值积分）
+                    const streamline_points = PVF_streamlines[i];
+
+                    const points = [];
+                    for (j=0; j < streamline_points.length; j++){
+                        points.push(new THREE.Vector3(streamline_points[j][0], streamline_points[j][1], streamline_points[j][2]));
+                    }
+                    // 跳过太短的流线
+                    if (points.length < minStreamlinePointNum) continue;
+                    if (points.length >= maxStreamlinePointNum) continue;
+
+                    // 2. 创建流线的可视化对象
+                    const curve = new THREE.CatmullRomCurve3(points);  // change this function to see if streamlines change
+                    // const curve = new CustomCurve(points);
+                    
+                    // 创建管状几何体
+                    const geometry = new THREE.TubeGeometry(
+                        curve, // curve,
+                        80,  // 沿曲线的分段数
+                        streamlineWidth,  // 管半径
+                        8,   // 横截面分段数
+                        false  // 不闭合
+                    );
+
+
+                    // 为每个顶点设置颜色（从红到蓝渐变）
+                    const colors = [];
+                    for (let i = 0; i < geometry.attributes.position.count; i++) {
+                        // 计算沿流线的比例（0到1）
+                        const t = i / (geometry.attributes.position.count - 1);
+                        // 颜色插值
+                        // const color = startColor.clone().lerp(endColor, t);
+                        const color = t < 0.5 ? 
+                                        startColor.clone().lerp(midColor, t * 2) : 
+                                        midColor.clone().lerp(endColor, (t - 0.5) * 2);
+                        colors.push(color.r, color.g, color.b);
+                    }
+
+                    // 设置颜色属性
+                    geometry.setAttribute(
+                        'color',
+                        new THREE.BufferAttribute(new Float32Array(colors), 3)
+                    );
+
+                    // 创建材质
+                    const material = new THREE.MeshBasicMaterial({
+                        vertexColors: THREE.VertexColors,  // 使用顶点颜色
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.3,
+                        // lights: false,
+                    });
+
+                    // const mergedGeometry = BufferGeometryUtils.mergeBufferGeometries(geometry);
+
+                    // 创建网格并返回
+                    const streamline = new THREE.Mesh(geometry, material);
+                    // const streamline = new THREE.Mesh(mergedGeometry, material);
+                    streamlinesGroup.add(streamline);
+                };
+
+                // 4. 渲染循环
+                // function animate() {
+                //     requestAnimationFrame(animate);
+                //     controls.update();
+                //     renderer.render(scene, camera);
+                // }
+                // animate();
+                // 窗口大小适配
+                window.addEventListener('resize', () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+            
+            
+        };
+
+        // 加载subject列表
+        async function loadSubjectList(path = '') {
+            try {
+                // 显示加载状态
+                folderSelect.innerHTML = '<option value="">Loading subject names...</option>';
+                hideError();
+                
+                // 调用API获取文件夹列表
+                const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects`);
+                
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    throw new Error(errorData?.error || `Failed to load subject names (${response.status})`);
+                }
+                
+                const data = await response.json();
+
+                folderSelect.innerHTML = '';
+
+                count_opt = 0;
+                for (const key in data) {
+                    // console.log(key, data[key]);
+                    const option = document.createElement('option');
+                    option.value = data[key];
+                    option.textContent = data[key];
+                    if (count_opt == 0){
+                        option.selected = true;
+                    }
+                    count_opt = count_opt + 1;
+                    folderSelect.appendChild(option);
+                }
+
+                
+                // 如果没有文件夹
+                if (Object.keys(data).length === 0) {
+                    const noFolderOption = document.createElement('option');
+                    noFolderOption.value = '';
+                    noFolderOption.textContent = 'No metadata Json files found';
+                    noFolderOption.disabled = true;
+                    folderSelect.appendChild(noFolderOption);
+                }
+                
+            } catch (error) {
+                console.error('Error loading subject names:', error);
+                showError(error.message);
+                folderSelect.innerHTML = '<option value="">Failed to load subject names</option>';
+            }
+        }
+
+        // 加载文件列表
+        async function loadFileList(subject) {
+            // 这里可以实现加载选中文件夹内文件的逻辑
+            console.log(`Load files for subject: ${subject}`);
+            try {
+                // 显示加载状态
+                fileSelect.innerHTML = '<option value="">Loading Files...</option>';
+                hideError();
+                
+                // 调用API获取文件夹列表
+                const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects-files?subject=${encodeURIComponent(subject)}`);
+                
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    throw new Error(errorData?.error || `Failed to load files (${response.status})`);
+                }
+                
+                const data = await response.json();
+
+                // console.log(Object.keys(data).length);
+                console.log(data);
+                // 清空并添加默认选项
+                fileSelect.innerHTML = '';
+                
+                count_opt = 0;
+                for (const key in data) {
+                    // console.log(key, data[key]);
+                    const option = document.createElement('option');
+                    option.value = data[key];
+                    option.textContent = data[key];
+                    if (count_opt == 0){
+                        option.selected = true;
+                    }
+                    count_opt = count_opt + 1
+                    fileSelect.appendChild(option);
+                }
+
+                
+                // 如果没有文件夹
+                if (Object.keys(data).length === 0) {
+                    const noFolderOption = document.createElement('option');
+                    noFolderOption.value = '';
+                    noFolderOption.textContent = 'No folders found';
+                    noFolderOption.disabled = true;
+                    fileSelect.appendChild(noFolderOption);
+                }
+                
+            } catch (error) {
+                console.error('Error loading folders:', error);
+                showError(error.message);
+                folderSelect.innerHTML = '<option value="">Failed to load folders</option>';
+            }
+        }
+
+
+        // previous timepoint
+        async function prevTimepoint() {
+            if (current_timepoint > t_min){
+                current_timepoint -= 1;
+                timeSlider.value = current_timepoint;
+                const times_currenttime = PVF_times[current_timepoint];
+                updatePVFStreamlines();
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
+            }
+        };
+        
+        // previous timepoint
+        async function nextTimepoint() {
+            if (current_timepoint < t_max && current_timepoint + 1 <= t_max){
+                current_timepoint += 1; // Assuming integer steps based on slider min/max/step
+                // But current_timepoint in JS is treated as number, ensure it's number
+                current_timepoint = Number(current_timepoint);
+                timeSlider.value = current_timepoint;
+                const times_currenttime = PVF_times[current_timepoint];
+                updatePVFStreamlines();
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
+            }
+        };
+
+        async function loadFile() {
+            // 这里可以实现加载选中文件夹内文件的逻辑
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+            
+            subject = folderSelect.value;
+            file    = fileSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-subjects-files?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
+                
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
+            }
+            
+            const data = await response.json();
+            subject_ID          = data.subject_ID;
+            PVF_positions       = data.pvf_positions;
+            PVF_directions      = data.pvf_directions;
+            PVF_times           = data.times;
+            PVF_condA           = data.condA;
+            PVF_pattern_data    = data.patterns;
+            PVF_mode_info       = data.mode_info;
+            PVF_streamlines     = data.streamlines;
+            PVF_num_time_points = data.PVF_num_time_points;
+            PVF_dimension       = data.PVF_dimension;
+            t_max               = PVF_num_time_points - 1;
+            // console.log(`PVF_num_time_points: ${PVF_times}`);
+            timeSlider.min           = t_min;
+            timeSlider.max           = t_max;
+            timeSlider.value         = current_timepoint;
+            const times_tmin        = PVF_times[t_min];
+            const times_tmax        = PVF_times[t_max];
+            const times_currenttime = PVF_times[timeSlider.value];
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
+            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+            timeStat.innerHTML = times_currenttime.toFixed(2);
+
+            // console.log(PVF_mode_info);
+            modeSelect.innerHTML = '';
+            for (const key in PVF_mode_info) {
+                singular_value       = PVF_mode_info[key]['singular_value']
+                percentage_explained = PVF_mode_info[key]['percentage']
+                mode_id = Number.parseInt(key)+1
+
+                const option = document.createElement('option');
+                option.value = mode_id;
+                option.textContent = "Mode " + mode_id + ": " + singular_value.toFixed(2) + " percentage explained " + percentage_explained.toFixed(2) + "%";
+                if (mode_id == 1){
+                    option.selected = true;
+                }
+                modeSelect.appendChild(option);
+            }
+
+            loadBrainSurfaces(subject);
+            
+            // Draw singularities immediately after load
+            if (settings.showSingularities == true){
+                createSingularities();
+            }
+
+            showError("PVF and streamlines loaded successfully.");
+            const time_control_div = document.getElementById("time-control-module");
+            time_control_div.classList.remove("div-disabled");
+            loadingIndicator.classList.add('hidden', 'opacity-0');
+
+            removeVectorObjects();
+            removeStreamlines();
+            
+        }
+
+
+        async function loadModeFields(){
+            // 这里可以实现加载选中文件夹内文件的逻辑
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+            subject = folderSelect.value;
+            file    = fileSelect.value;
+            modeID  = modeSelect.value - 1;
+            console.log("requesting mode: " + modeID)
+
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(modeID)}`);
+                
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
+            }
+            
+            const data = await response.json();
+            PVF_positions       = data.positions;
+            PVF_directions      = data.directions;
+            PVF_temporal_modes  = data.temporal_modes
+
+            const time_control_div = document.getElementById("time-control-module");
+            time_control_div.classList.add("div-disabled");
+
+            present_PVF = true;
+            const showVectorsCheckbox = document.getElementById("show-vectors");
+            showVectorsCheckbox.checked = true;
+            createModeVectorFields();
+            showTemporalModes();
+            
+            // showError("Mode fields loaded successfully.");
+
+            
+
+            loadingIndicator.classList.add('hidden', 'opacity-0');
+        }
+
+        function createModeVectorFields(){
+            removeStreamlines();
+            removeVectorObjects();
+            vectorField = [];
+            settings.resolution = PVF_dimension;
+            const size = PVF_dimension;
+            const spacing = volume_size / (size - 1);
+            // Show loading indicator            
+            loadingIndicator.classList.remove('hidden', 'opacity-0');
+
+
+             for (let i = 0; i < PVF_positions.length; i++) {
+                // vector position
+                const x = PVF_positions[i][0];
+                const y = PVF_positions[i][1];
+                const z = PVF_positions[i][2];
+                // vector direction
+                vx = PVF_directions[i][0];
+                vy = PVF_directions[i][1];
+                vz = PVF_directions[i][2];
+
+                // normalize vector
+                const magnitude = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                // if (magnitude > 0) {
+                //     vx /= magnitude;
+                //     vy /= magnitude;
+                //     vz /= magnitude;
+                // }
+            
+                vectorField.push({
+                    position: new THREE.Vector3(x, y, z),
+                    direction: new THREE.Vector3(vx, vy, vz),
+                    magnitude: magnitude
+                });
+             }
+
+            createVectorObjects();
+            updateVectorObjects();
+            // Update controls
+            controls.update();
+            
+            // loadingIndicator.classList.remove('hidden', 'opacity-0');
+            
+            // Render scene
+            renderer.render(scene, camera);
+            
+            // showError("PVF vector field loaded successfully");
+            // Hide loading indicator
+            loadingIndicator.classList.add('opacity-0', 'hidden');
+        }
+
+        function showTemporalModes(){
+            console.log(PVF_temporal_modes.length)
+            modeID = modeSelect.value - 1;
+            // 1. 创建Canvas元素（插入到chartContainer中）
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "visible"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "hidden"
+            const canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+            canvas.width  = "100%";
+            canvas.height = "100%";
+
+            // 2. 定义颜色数组（10种不同颜色，可自定义）
+            const lineColors = ['#ff4545', '#df5c4e', '#a8b7ff', "#ff4545", '#ffc45c', 
+                                '##feda57', '#a4c6eb', '#cfeaf4', '#9dba6f', '#a9c97a', 
+                                '#c27c87', '#6b86a5', '#5e7684', '#136b87', '#4e5c35', 
+                                '#ffe6d4', '#4a7c82', '#c27c87', '#6e3f4a', '#787f72'];
+
+            // 3. 构造Chart.js所需数据格式
+            const datasets = []
+            for (let i = 0; i < PVF_temporal_modes.length; i++) {
+                const isHighlight = i === modeID;
+                line = PVF_temporal_modes[i];
+                datasets.push(
+                    {
+                       label               : `mode ${i+1}`,
+                       data                : PVF_temporal_modes[i].map((yValue, xIndex) => ({ 
+                                                x: xIndex, // x轴：使用数组索引（0 ~ 299）
+                                                y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
+                                            })),
+                       borderColor         : isHighlight ? lineColors[i] : lineColors[i] + '33', // 折线边框透明度
+                       borderWidth         : isHighlight ? 1             : 0.5,                    // 高亮折线稍粗，提升辨识度
+                       tension             : 0.2,
+                       fill                : false,
+                        // pointBackgroundColor: isHighlight ? highlightColor: transparentColor, // 数据点透明度
+                       pointRadius         : isHighlight ? 1             : 0.5                     // 高亮数据点稍大
+                    }
+                )
+            }
+            const chartData = {
+                labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
+                datasets: datasets
+            }
+            // const chartData = {
+            //     labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
+            //     datasets: PVF_temporal_modes.map((line, index) => ({
+            //         label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
+            //         data: line.map((yValue, xIndex) => ({ 
+            //             x: xIndex, // x轴：使用数组索引（0 ~ 299）
+            //             y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
+            //         })),
+            //         borderColor    : lineColors[index], // 线条颜色
+            //         backgroundColor: lineColors[index], // 填充颜色（透明，可选） + '33'
+            //         borderWidth    : 0,                 // 线条宽度
+            //         fill           : false,             // 不填充线下区域
+            //         tension        : 0.2,               // 折线（无平滑，如需平滑可设为0.4）
+            //         // point: {
+            //         //     radius     : 0, // 点半径设为0，隐藏点
+            //         //     hoverRadius: 0, // 鼠标悬浮时点半径也设为0
+            //         //     display    : false // 直接禁用点显示
+            //         // },// 隐藏数据点（300个点无需显示，提升性能）
+            //     }))
+            // };
+
+            // 4. 配置Chart.js选项（背景透明、图例显示等）
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                backgroundColor: 'transparent', // 图表背景透明
+                plugins: {
+                    title: {
+                        font   : {size: 30},
+                        display: true,
+                        color  : '#cfeaf4',  // 图例文字颜色
+                        text   : 'Temporal modes'
+                    },
+                    legend: {
+                        display: true, // 显示图例
+                        position: 'top', // 图例位置（右侧，可改为top/bottom/left）
+                        labels: {
+                            color: '#cfeaf4', // 图例文字颜色
+                            font: { size: 24 }
+                        }
+                    },
+                    tooltip: { enabled: true } // 鼠标悬浮提示（可选）
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }, // 隐藏x轴网格线（可选）
+                        ticks: { color: '#666' }
+                    },
+                    y: {
+                        grid: { color: '#eee' }, // y轴网格线（可选）
+                        ticks: { color: '#666' }
+                    }
+                }
+            };
+
+            // 5. 初始化图表并绘制
+            new Chart(canvas, {
+                type: 'line',
+                data: chartData,
+                options: chartOptions,
+            });
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            errorDetails.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+        
+        // 隐藏错误信息
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+        
+        // 显示选中文件夹信息
+        function showSelectedFolder(path) {
+            if (path) {
+                selectedFolderPath.textContent = path;
+                selectedFolderInfo.classList.remove('hidden');
+            } else {
+                selectedFolderInfo.classList.add('hidden');
+            }
+        }
+
+        // 监听下拉框变化
+        folderSelect.addEventListener('click', (e) => {
+            const selectedSubject = e.target.value;
+            // showSelectedFolder(selectedSubject);
+            loadFileList(selectedSubject);
+            
+            // 如果需要实现多级浏览，可以在这里递归加载子文件夹
+            // loadSubjectList(selectedPath);
+        });
+    </script>
+</body>
+</html>

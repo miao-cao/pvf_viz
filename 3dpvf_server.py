@@ -461,13 +461,14 @@ def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str
         "metadata_fname"     : file_name,
         "pvf_positions"      : pvf_data["positions"].tolist(),
         "pvf_directions"     : pvf_data["directions"].tolist(),
-        "times"              : file_pvf_data["times"][:-2],
+        "times"              : file_pvf_data["times"][:-2],  # here, because time stencil, last two time points are not computed
         "condA"              : sum(file_pvf_data["condA"][str(timepoint)]) / len(file_pvf_data["condA"][str(timepoint)]),
         "patterns"           : file_pvf_data["pattern_data"].get(str(timepoint), []),
         "mode_info"          : file_pvf_data['mode_info'],
         "streamlines"        : streamlines,
         "PVF_dimension"      : file_pvf_data["PVF_dimension"],
-        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"]-2,                                            }
+        "PVF_num_time_points": file_pvf_data["PVF_num_time_points"]-2, # here, because time stencil, last two time points are not computed
+        }
 
 
 # start up server
