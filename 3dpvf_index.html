@@ -447,7 +447,7 @@
                     </div>
                 </div>
             </div>
-            <!-- Time control Settings -->
+            <!-- Time control module -->
             <div id="time-control-module" class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[50rem] rounded-xl p-4 border border-white/10 mb-4">
                 <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
                     <i class="fas fa-play text-primary"></i>
@@ -489,6 +489,9 @@
                     </div>
                 </div>
                 
+            </div>
+            <!-- Temporal mode plot canvas -->
+            <div id="time-mode-plot" class="absolute absolute top-3/4 left-1/2 -translate-x-1/2 w-[80rem] h-[30rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
             </div>
         </div>
     </main>
@@ -954,6 +957,13 @@
         function loadPVFVectorField() {
             removeVectorObjects();
             removeStreamlines();
+
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+
             vectorField = [];
             settings.resolution = PVF_dimension;
             const size = PVF_dimension;
@@ -1082,6 +1092,11 @@
         // Function to create/update singularities
         function createSingularities() {
             present_singluar_points = true
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
             // Clear existing singularities
             while(singularitiesGroup.children.length > 0){ 
                 singularitiesGroup.remove(singularitiesGroup.children[0]); 
@@ -1622,6 +1637,11 @@
             // clear streamlines from previous frame
             removeStreamlines();
             document.getElementById('show-streamlines').checked = true;
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
             present_streamlines = true;
 
             if (present_streamlines == true){
@@ -1856,6 +1876,12 @@
         async function loadFile() {
             // 这里可以实现加载选中文件夹内文件的逻辑
             loadingIndicator.classList.remove('hidden', 'opacity-0');
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "hidden"
+            container.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+            
             subject = folderSelect.value;
             file    = fileSelect.value;
             const response = await fetch(`http://${server_ip}:${server_port}/api/load-subjects-files?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
@@ -2011,32 +2037,41 @@
         }
 
         function showTemporalModes(){
-            console.log(PVF_temporal_modes)
+            console.log(PVF_temporal_modes.length)
+
             // 1. 创建Canvas元素（插入到chartContainer中）
-            const container = document.getElementById('chartContainer');
+            const container = document.getElementById('time-mode-plot');
+            container.style.visibility = "visible"
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "hidden"
             const canvas = document.createElement('canvas');
             container.appendChild(canvas);
-            canvas.width = container.offsetWidth;
-            canvas.height = container.offsetHeight;
+            canvas.width = "100%";
+            canvas.height = "100%";
 
             // 2. 定义颜色数组（10种不同颜色，可自定义）
-            const lineColors = [
-                '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF',
-                '#00FFFF', '#FF7F00', '#7FFF00', '#00FF7F', '#7F00FF'
-            ];
+            const lineColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF',
+                '#00FFFF', '#FF7F00', '#7FFF00', '#00FF7F', '#7F00FF'];
 
             // 3. 构造Chart.js所需数据格式
             const chartData = {
                 labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
                 datasets: PVF_temporal_modes.map((line, index) => ({
                     label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
-                    data: line.map(([x, y]) => ({ x, y })), // 转换为Chart.js支持的格式
+                    data: line.map((yValue, xIndex) => ({ 
+                        x: xIndex, // x轴：使用数组索引（0 ~ 299）
+                        y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
+                    })),
                     borderColor: lineColors[index], // 线条颜色
                     backgroundColor: lineColors[index] + '33', // 填充颜色（透明，可选）
-                    borderWidth: 2, // 线条宽度
+                    borderWidth: 0.1, // 线条宽度
                     fill: false, // 不填充线下区域
                     tension: 0, // 折线（无平滑，如需平滑可设为0.4）
-                    point: { radius: 0 } // 隐藏数据点（300个点无需显示，提升性能）
+                    point: {
+                        radius: 0, // 点半径设为0，隐藏点
+                        hoverRadius: 0, // 鼠标悬浮时点半径也设为0
+                        display: false // 直接禁用点显示
+                    },// 隐藏数据点（300个点无需显示，提升性能）
                 }))
             };
 
@@ -2044,14 +2079,18 @@
             const chartOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
-                backgroundColor: 'transparent', // 图表背景透明
+                // backgroundColor: 'transparent', // 图表背景透明
                 plugins: {
+                    title: {
+                        display: true,
+                        text: 'Temporal modes'
+                    },
                     legend: {
                         display: true, // 显示图例
-                        position: 'right', // 图例位置（右侧，可改为top/bottom/left）
+                        position: 'top', // 图例位置（右侧，可改为top/bottom/left）
                         labels: {
                             color: '#333', // 图例文字颜色
-                            font: { size: 12 }
+                            font: { size: 14 }
                         }
                     },
                     tooltip: { enabled: true } // 鼠标悬浮提示（可选）
