@@ -16,5 +16,5 @@ Freesurfer subjects
 # To do list
 
 Key Components:
- - Publication-level fine tuning of colarmaps, angles and visualisation.
+ - Publication-level fine tuning of colarmaps, vectors and view angles.
  
