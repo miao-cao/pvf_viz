@@ -10,8 +10,12 @@ Under pvf_data, use soft links (Linux/Unix) to point to PVF data folder and Free
 PVF data
 > pvf_data/pvf_subjects
 
+> ln -s /PATH_TO_pvf_subjects pvf_data/pvf_subjects
+
 Freesurfer subjects
 > pvf_data/fs_subjects
+
+> ln -s /PATH_TO_fs_subjects pvf_data/fs_subjects
 
 # To do list
 
