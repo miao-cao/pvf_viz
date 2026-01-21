@@ -132,61 +132,106 @@
             <div class="space-y-6">
                 <!-- PVF data Browser -->
                 <div class="panel-gradient rounded-xl p-4 border border-white/10">
-                <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
-                        <i class="fas fa-database text-primary" aria-hidden="True"></i>
-                        Database
-                </h2>
-                <div class="mb-5">
-                    <div class="mb-4 gap-2">
-                        <label class="inline-block font-medium text-light/80 mb-2">IP address:</label>
-                        <input type="text" id="server_ip" placeholder="127.0.0.1" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
-                        <label class="inline-block font-medium text-light/80 mb-2">Port:</label>
-                        <input type="number" id="server_port" placeholder="32123" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                            <i class="fas fa-database text-primary" aria-hidden="True"></i>
+                            Database
+                    </h2>
+                    <div class="mb-5">
+                        <div class="mb-4 gap-2">
+                            <label class="inline-block font-medium text-light/80 mb-2">IP address:</label>
+                            <input type="text" id="server_ip" placeholder="127.0.0.1" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
+                            <label class="inline-block font-medium text-light/80 mb-2">Port:</label>
+                            <input type="number" id="server_port" placeholder="32123" style="width: 25%; color: rgb(255, 255, 255); padding: 6px; border: 1px solid #cfcaca; background-color: black;">
+                        </div>
+                        <div class="text-sm text-gray-600 gap-2">
+                            <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="setServerIPPort()">
+                                <i class="fas fa-database"></i>
+                                <span>Set database IP address and port</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="text-sm text-gray-600 gap-2">
-                        <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="setServerIPPort()">
-                            <i class="fas fa-database"></i>
-                            <span>Set database IP address and port</span>
-                        </button>
-                    </div>
-                </div>
 
-                <div class="mb-5">
-                    <div class="mb-4 gap-2">
-                        <label class="block text-sm font-medium text-light/80 mb-3">Subject List</label>
-                        <select id="subject-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
-                            <option value="">Loading subject names...</option>
-                        </select>
+                    <div class="mb-5">
+                        <div class="mb-4 gap-2">
+                            <label class="block text-sm font-medium text-light/80 mb-3">Subject List</label>
+                            <select id="subject-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">Loading subject names...</option>
+                            </select>
+                        </div>
+                        <div class="text-sm text-gray-600 gap-2">
+                            <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadSubjectList()">
+                                <i class="fas fa-list"></i>
+                                <span>Load Subjects</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="text-sm text-gray-600 gap-2">
-                        <button id="load-subject-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadSubjectList()">
-                            <i class="fas fa-list"></i>
-                            <span>Load Subjects</span>
-                        </button>
-                    </div>
-                </div>
 
-                <!-- File Button -->
-                <div class="mb-4 gap-4">
-                    <div class="mb-4 gap-2">
-                        <label class="block text-sm font-medium text-light/80 mb-3">Meta Data File List</label>
-                        <select id="file-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50 gap-4">
-                            <option value="">Loading files...</option>
-                        </select>
+                    <!-- Meta File Button -->
+                    <div class="mb-4 gap-4">
+                        <div class="mb-4 gap-2">
+                            <label class="block text-sm font-medium text-light/80 mb-3">Meta Data File List</label>
+                            <select id="file-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50 gap-4">
+                                <option value="">Loading files...</option>
+                            </select>
+                        </div>
+                        <div class="text-sm text-gray-600 mb-3">
+                            <button id="load-file-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadFile()">
+                                <i class="fas fa-file" aria-hidden="true"></i>
+                                <span>Load Meta Data Files</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="text-sm text-gray-600 mb-3">
-                        <button id="load-file-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadFile()">
-                            <i class="fas fa-file" aria-hidden="true"></i>
-                            <span>Load Meta Data Files</span>
-                        </button>
-                    </div>
-                </div>
 
-                <div id="selected-folder-info" class="mt-4 p-3 bg-blue-50 rounded-lg hidden">
-                    <h3 class="font-medium text-blue-800">Selected Folder:</h3>
-                    <p id="selected-folder-path" class="text-sm text-blue-700"></p>
-                </div>
+                    <!-- Source Estimate File Button -->
+                    <div class="mb-4 gap-4">
+                        <div class="mb-4 gap-2">
+                            <label class="block text-sm font-medium text-light/80 mb-3">Source Estimate File List</label>
+                            <select id="se-file-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50 gap-4">
+                                <option value="">Loading files...</option>
+                            </select>
+                        </div>
+                        <div class="text-sm text-gray-600 mb-3">
+                            <button id="load-file-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="">
+                                <i class="fas fa-file" aria-hidden="true"></i>
+                                <span>Load Sensor Signals and Source Estimate Data</span>
+                            </button>
+                        </div>
+                    </div>
+
+
                 
+                </div>
+
+
+                <!-- Sensor and source signals -->
+                <div class="panel-gradient rounded-xl p-4 border border-white/10">
+                    <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
+                        <i class="fas fa-sliders-h text-primary"></i>
+                        Sensor signals and source estimates
+                    </h2>
+                    
+                    <div class="space-y-4">                                                 
+                        <div>
+                            <label class="block text-sm font-medium text-light/80 mb-1">Sensor signals</label>
+                            <div class="flex items-center">
+                                <button id="present-sensor-signals" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="">
+                                    <i class="fas fa-long-arrow-right"></i>
+                                    <span>Present sensor signals</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <label class="block text-sm font-medium text-light/80 mb-1">Source estimate</label>
+                        <div class="flex items-center">
+                            <button id="present-source-estimate" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="">
+                                <i class="fas fa-long-arrow-right"></i>
+                                <span>Present source estimate</span>
+                            </button>
+                        </div>
+                        
+
+                    </div>
+
                 </div>
 
                 <!-- Vector Field Settings -->
@@ -516,6 +561,7 @@
         // DOM elements for File Panel
         const folderSelect       = document.getElementById('subject-select');
         const fileSelect         = document.getElementById('file-select');
+        const seFileSelect       = document.getElementById('se-file-select');
         const modeSelect         = document.getElementById('mode-select');
         const selectedFolderInfo = document.getElementById('selected-folder-info');
         const selectedFolderPath = document.getElementById('selected-folder-path');
@@ -1168,7 +1214,7 @@
                 loadingIndicator.classList.remove('hidden', 'opacity-0');
                 
                 // 调用API获取表面文件路径
-                const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-surfaces-obj?subject=${encodeURIComponent(subject)}`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-surfaces?subject=${encodeURIComponent(subject)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to get brain surfaces (${response.status})`);
@@ -1802,17 +1848,26 @@
                 
                 // 调用API获取文件夹列表
                 const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects-files?subject=${encodeURIComponent(subject)}`);
+
+                const response_se = await fetch(`http://${server_ip}:${server_port}/api/list-subject-source-estimate?subject=${encodeURIComponent(subject)}`);
                 
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => null);
                     throw new Error(errorData?.error || `Failed to load files (${response.status})`);
                 }
+
+                if (!response_se.ok) {
+                    const errorData = await response_se.json().catch(() => null);
+                    throw new Error(errorData?.error || `Failed to load files (${response_se.status})`);
+                }
                 
                 const data = await response.json();
+                const se_data= await response_se.json();
 
                 // console.log(Object.keys(data).length);
                 console.log(data);
+
                 // 清空并添加默认选项
                 fileSelect.innerHTML = '';
                 
@@ -1837,6 +1892,32 @@
                     noFolderOption.textContent = 'No folders found';
                     noFolderOption.disabled = true;
                     fileSelect.appendChild(noFolderOption);
+                }
+
+
+                seFileSelect.innerHTML = '';
+                console.log(se_data);
+                count_opt = 0;
+                for (const key in se_data) {
+                    // console.log(key, data[key]);
+                    const option = document.createElement('option');
+                    option.value = se_data[key];
+                    option.textContent = se_data[key];
+                    if (count_opt == 0){
+                        option.selected = true;
+                    }
+                    count_opt = count_opt + 1
+                    seFileSelect.appendChild(option);
+                }
+
+                
+                // 如果没有文件夹
+                if (Object.keys(se_data).length === 0) {
+                    const noFolderOption = document.createElement('option');
+                    noFolderOption.value = '';
+                    noFolderOption.textContent = 'No folders found';
+                    noFolderOption.disabled = true;
+                    seFileSelect.appendChild(noFolderOption);
                 }
                 
             } catch (error) {

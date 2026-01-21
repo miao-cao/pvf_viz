@@ -4,9 +4,9 @@ import copy
 from pathlib import Path
 from typing import Dict, List, Any
 
-
-import numpy as np
 import mne
+import h5py
+import numpy as np
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,7 +41,7 @@ STREAMLINES_DOWNSAMPLE_FACTOR   : int = 4 # keep this as 4 - important - 2026011
 PVF_SUBJECTS_DIR = f"{Path(__file__).parent}/pvf_data/pvf_subjects"
 FS_SUBJECTS_DIR  = f"{Path(__file__).parent}/pvf_data/fs_subjects"
 
-
+# ------ list files ---------------------------
 @app.get("/api/list-subjects")
 async def list_subjects():
     """
@@ -69,6 +69,23 @@ async def list_subjects_pvf_files(subject: str = Query(None)):
     
     return fname_list
 
+@app.get("/api/list-subject-source-estimate")
+async def list_subject_source_estimate_files(subject: str = Query(None)):
+    """
+    list all _metadata.json files for a given subject.
+    """
+    subject_id  = subject
+    subject_dir = f"{PVF_SUBJECTS_DIR}/{subject_id}"
+    fname_list  = []
+    if os.path.exists(subject_dir) == False:
+        return fname_list
+    
+    fname_list = [fname for fname in os.listdir(subject_dir) if os.path.isfile(os.path.join(subject_dir, fname)) and fname.endswith("-stc.h5")]
+    
+    return fname_list
+
+
+# ------ load data ----------------------------
 @app.get("/api/load-subjects-files")
 async def load_subjects_files(
                             subject         : str             = Query(None),
@@ -86,6 +103,21 @@ async def load_subject_file_modes(
     data = process_modes(subject_name=subject, file_name=file, mode_id=int(mode))
     return data
 
+@app.get("/api/load-source-estimate")
+async def load_subject_source_estimate_file(subject         : str             = Query(None),
+                                            file            : str             = Query(None),):
+    global subjects_loaded_pvf_data
+    load_subject_source_estimate(subject_name=subject, file_name=file, timepoint=0)
+    sensor_signals = subjects_loaded_pvf_data[subject]["source_estimate"][file]['sensor_signals']
+    return {'sensor_signals': sensor_signals}
+
+@app.get("/api/update-source-estimate")
+async def update_subject_source_estimate_file(subject         : str             = Query(None),
+                                              file            : str             = Query(None),
+                                              timepoint       : str             = Query(None)):
+    data = load_subject_source_estimate(subject_name=subject, file_name=file, timepoint=timepoint)    
+    return data
+
 @app.get("/api/update-PVF-streamlines")
 async def update_pvf_streamlines(subject: str = Query(None), file: str = Query(None), timepoint: str = Query(None)):
     """更新特定时间点的流线数据"""
@@ -94,24 +126,6 @@ async def update_pvf_streamlines(subject: str = Query(None), file: str = Query(N
 
 @app.get("/api/get-brain-surfaces")
 async def get_brain_surfaces(subject: str = Query(None)):
-    """获取指定受试者的大脑皮层表面文件路径"""
-    if not subject:
-        return {"error": "Subject ID is required"}
-    
-    lh_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/lh.pial.obj"
-    rh_path = f"{FS_SUBJECTS_DIR}/{subject}/surf/rh.pial.obj"
-    
-    lh_exists = os.path.exists(lh_path)
-    rh_exists = os.path.exists(rh_path)
-    
-    return {
-        "lh_surface": f"pvf_data/fs_subjects/{subject}/surf/lh.pial.obj" if lh_exists else None,
-        "rh_surface": f"pvf_data/fs_subjects/{subject}/surf/rh.pial.obj" if rh_exists else None,
-        "subject": subject
-    }
-
-@app.get("/api/get-brain-surfaces-obj")
-async def get_brain_surfaces_obj(subject: str = Query(None)):
     """Obtain Brain surfaces as vertices and faces"""
     if not subject:
         return {"error": "Subject ID is required"}
@@ -127,8 +141,6 @@ async def get_brain_surfaces_obj(subject: str = Query(None)):
             "rh_surface": {'vertices': rh_vertices.tolist(), 'faces': rh_faces.tolist()},
             "subject_id" : subject,     }
 
-
-# app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 # ------ functions to load more subjects --------------
 def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_id: int) -> Dict[str, Any]:
@@ -366,10 +378,11 @@ def read_subject_pvf_json(subject_name: str, file_name: str) -> Dict[str, Any]:
     subject_id                                = subject_name
     whole_brain_source_space_fname            = f"{FS_SUBJECTS_DIR}/{subject_id}/bem/whole_brain_vol_src.fif"
     
-    subject_pvf_data               = dict()
-    subject_pvf_data['subject_id'] = subject_name
-    subject_pvf_data['vol_src']    = mne.read_source_spaces(whole_brain_source_space_fname)
-    subject_pvf_data['meta_files'] = dict()
+    subject_pvf_data                    = dict()
+    subject_pvf_data['subject_id']      = subject_name
+    subject_pvf_data['vol_src']         = mne.read_source_spaces(whole_brain_source_space_fname)
+    subject_pvf_data['meta_files']      = dict()
+    subject_pvf_data['source_estimate'] = dict()
     print(f"Successfully loaded volume source space: {whole_brain_source_space_fname}")
     
     metadata_path         = f"{PVF_SUBJECTS_DIR}/{subject_name}/PVF/{file_name}"
@@ -444,7 +457,56 @@ def downsample_streamlines(streamlines: List[Any], factor: int = 2) -> List[Any]
         downsampled_streamlines.append(downsampled_sl)
     return downsampled_streamlines
 
+
 # ------------------------------------------------------
+# load to visualise source estimate
+def load_subject_source_estimate(subject_name: str, file_name: str, timepoint: str):
+    global subjects_loaded_pvf_data
+
+    if file_name in subjects_loaded_pvf_data[subject_name]['source_estimate']:
+        whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_name}/bem/whole_brain_vol_src.fif"
+        if 'vol_src' not in subjects_loaded_pvf_data[subject_name]:
+            print(f"Loading source space: {whole_brain_source_space_fname}")
+            subjects_loaded_pvf_data[subject_name]['vol_src'] = mne.read_source_spaces(whole_brain_source_space_fname)
+            vol_src = subjects_loaded_pvf_data[subject_name]['vol_src']
+        elif subjects_loaded_pvf_data[subject_name]['vol_src'] == None:
+            
+            subjects_loaded_pvf_data[subject_name]['vol_src'] = mne.read_source_spaces(whole_brain_source_space_fname)
+            vol_src = subjects_loaded_pvf_data[subject_name]['vol_src']
+    else:
+        whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_name}/bem/whole_brain_vol_src.fif"
+        if 'vol_src' not in subjects_loaded_pvf_data[subject_name]:
+            print(f"Loading source space: {whole_brain_source_space_fname}")
+            subjects_loaded_pvf_data[subject_name]['vol_src'] = mne.read_source_spaces(whole_brain_source_space_fname)
+            vol_src = subjects_loaded_pvf_data[subject_name]['vol_src']
+        elif subjects_loaded_pvf_data[subject_name]['vol_src'] == None:
+            print(f"Loading source space: {whole_brain_source_space_fname}")
+            subjects_loaded_pvf_data[subject_name]['vol_src'] = mne.read_source_spaces(whole_brain_source_space_fname)
+            vol_src = subjects_loaded_pvf_data[subject_name]['vol_src']
+
+        sensor_signals_file_name = file_name.replace("-stc.h5", ".mat")
+        src_est_fname            = f"{PVF_SUBJECTS_DIR}/{subject_name}/{file_name}"
+        sensor_signals_fname     = f"{PVF_SUBJECTS_DIR}/{subject_name}/{sensor_signals_file_name}"
+        print(f"Loading sensor signals from {sensor_signals_fname}")
+        sensor_signal_file       = h5py.File(sensor_signals_fname)
+        if 'sensor_signals' in sensor_signal_file.keys():
+            sensor_signals = np.asarray(sensor_signal_file['sensor_signals'])
+        else:
+            sensor_signals = np.asarray(sensor_signal_file['sensor_signals'])
+
+        print(f"Loading source estimate: {src_est_fname}")
+        src_est = mne.read_source_estimate(fname=src_est_fname, subject=subject_name)
+        subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]                   = dict()
+        subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_signals'] = src_est.data
+        subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_vert_no'] = src_est.vertices[0]
+        subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['sensor_signals'] = sensor_signals
+
+    source_data_time = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_signals'][:, timepoint]
+    source_vert_no   = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_vert_no']
+    source_positions = vol_src[0]['rr'][source_vert_no] * 1000
+
+    return {'posittions': source_positions.tolist(), 'values': source_data_time.tolist()}
+
 
 # ------ response of pvf (json) data to api requests --------------
 def resp_pvf_json(subject_name: str, file_name: str, timepoint: int) -> Dict[str, Any]:
