@@ -108,7 +108,7 @@ async def load_subject_source_estimate_file(subject         : str             = 
                                             file            : str             = Query(None),):
     global subjects_loaded_pvf_data
     load_subject_source_estimate(subject_name=subject, file_name=file, timepoint=0)
-    sensor_signals = subjects_loaded_pvf_data[subject]["source_estimate"][file]['sensor_signals']
+    sensor_signals = subjects_loaded_pvf_data[subject]["source_estimate"][file]['sensor_signals'].T.tolist() # in the form of time * channels
     return {'sensor_signals': sensor_signals}
 
 @app.get("/api/update-source-estimate")
@@ -148,7 +148,7 @@ def process_pvf_time_window(subject_name: str, file_name: str, pvf_time_window_i
     global subjects_loaded_pvf_data
 
     file_pvf_data = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
-    print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {file_pvf_data["PVF_num_time_points"]}")
+    print(f"Processing Vx, Vy, Vz at time point: {pvf_time_window_id} of {file_pvf_data['PVF_num_time_points']}")
 
     file_pvf_data   = subjects_loaded_pvf_data[subject_name]['meta_files'][file_name]
     mask_volume     = subjects_loaded_pvf_data[subject_name]['volume_mask']
@@ -492,7 +492,7 @@ def load_subject_source_estimate(subject_name: str, file_name: str, timepoint: s
         if 'sensor_signals' in sensor_signal_file.keys():
             sensor_signals = np.asarray(sensor_signal_file['sensor_signals'])
         else:
-            sensor_signals = np.asarray(sensor_signal_file['sensor_signals'])
+            sensor_signals = np.asarray(sensor_signal_file['source_data'])
 
         print(f"Loading source estimate: {src_est_fname}")
         src_est = mne.read_source_estimate(fname=src_est_fname, subject=subject_name)
@@ -503,9 +503,9 @@ def load_subject_source_estimate(subject_name: str, file_name: str, timepoint: s
 
     source_data_time = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_signals'][:, timepoint]
     source_vert_no   = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_vert_no']
-    source_positions = vol_src[0]['rr'][source_vert_no] * 1000
+    source_positions = subjects_loaded_pvf_data[subject_name]['vol_src'][0]['rr'][source_vert_no] * 1000
 
-    return {'posittions': source_positions.tolist(), 'values': source_data_time.tolist()}
+    return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
 
 
 # ------ response of pvf (json) data to api requests --------------

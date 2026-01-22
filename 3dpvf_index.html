@@ -191,7 +191,7 @@
                             </select>
                         </div>
                         <div class="text-sm text-gray-600 mb-3">
-                            <button id="load-file-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="">
+                            <button id="load-file-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="load_sensor_signals_source_estimate()">
                                 <i class="fas fa-file" aria-hidden="true"></i>
                                 <span>Load Sensor Signals and Source Estimate Data</span>
                             </button>
@@ -214,7 +214,7 @@
                         <div>
                             <label class="block text-sm font-medium text-light/80 mb-1">Sensor signals</label>
                             <div class="flex items-center">
-                                <button id="present-sensor-signals" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="">
+                                <button id="present-sensor-signals" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="showSensorSignals()">
                                     <i class="fas fa-long-arrow-right"></i>
                                     <span>Present sensor signals</span>
                                 </button>
@@ -223,15 +223,12 @@
 
                         <label class="block text-sm font-medium text-light/80 mb-1">Source estimate</label>
                         <div class="flex items-center">
-                            <button id="present-source-estimate" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="">
+                            <button id="present-source-estimate" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadVolume()">
                                 <i class="fas fa-long-arrow-right"></i>
                                 <span>Present source estimate</span>
                             </button>
                         </div>
-                        
-
                     </div>
-
                 </div>
 
                 <!-- Vector Field Settings -->
@@ -535,6 +532,11 @@
                 </div>
                 
             </div>
+
+            <!-- Sensor signal plot canvas -->
+            <div id="sensor-signal-plot" class="absolute absolute top-2/3 left-1/2 -translate-x-1/2 w-[90rem] h-[20rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
+            </div>
+
             <!-- Temporal mode plot canvas -->
             <div id="time-mode-plot" class="absolute absolute top-3/4 left-1/2 -translate-x-1/2 w-[80rem] h-[30rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
             </div>
@@ -592,17 +594,22 @@
         let PVF_temporal_modes  = {};
         let PVF_condA           = 0;
         let PVF_pattern_data    = []; // Changed to array to hold current list of singularities
+        let PVF_sensor_signals  = [];
         
 
-        let volume_size             = 50;       // where brain, vectors and streamlines reside
-        let streamlineWidth         = 0.1;      // 0.025 streamline tube width
+        let volume_size             = 50;                   // where brain, vectors and streamlines reside
+        let streamlineWidth         = 0.1;                  // 0.025 streamline tube width
         let streamlinesGroup        = new THREE.Group();
-        let singularitiesGroup      = new THREE.Group(); // Group for singularities
+        let singularitiesGroup      = new THREE.Group();    // Group for singularities
         let present_PVF             = false;
         let present_streamlines     = false;
         let present_singluar_points = false;
         let minStreamlinePointNum   = 2
         let maxStreamlinePointNum   = 15
+
+
+        let present_sensor_signals  = false
+        let present_source_estimate = false
 
 
         let brainSurfaces = {
@@ -672,6 +679,7 @@
             showSingularities: false,
             singularityScale : 1.0
         };
+
         class CustomCurve extends THREE.Curve {
             /**
              * 构造函数：接收Vector3列表初始化曲线（无任何插值）
@@ -979,8 +987,15 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
                 timeStat.innerHTML = times_currenttime.toFixed(2);
-
-                updatePVFStreamlines();
+                if (present_PVF == true || present_streamlines == true){
+                    updatePVFStreamlines();
+                    showSensorSignals();
+                }else{
+                    loadVolume();
+                    showSensorSignals();
+                }
+                
+                
                 showError(current_timepoint)
                 // updateVectorObjects();
             });
@@ -1009,6 +1024,7 @@
             container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "visible"
+            timeControl.classList.remove("div-disabled");
 
             vectorField = [];
             settings.resolution = PVF_dimension;
@@ -1135,6 +1151,33 @@
             }
         }
 
+        // load sensor signals
+        async function load_sensor_signals_source_estimate(){
+            try {
+                // 显示加载指示器
+                loadingIndicator.classList.remove('hidden', 'opacity-0');
+                file = seFileSelect.value;
+                
+                // 调用API获取表面文件路径
+                const response = await fetch(`http://${server_ip}:${server_port}/api/load-source-estimate?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to get brain surfaces (${response.status})`);
+                }
+                
+                const data = await response.json();
+                
+                PVF_sensor_signals = data.sensor_signals;
+                showError(`Successfully loaded sensor signals for ${subject}, file ${file}`);
+                loadingIndicator.classList.add('hidden', 'opacity-0');
+                
+            } catch (error) {
+                console.error('Error loading sesnro signals :', error);
+                showError(`Failed to load sensor signals: ${error.message}`);
+                loadingIndicator.classList.add('hidden', 'opacity-0');
+            }
+        }
+
         // Function to create/update singularities
         function createSingularities() {
             present_singluar_points = true
@@ -1143,6 +1186,7 @@
             container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "visible"
+            timeControl.classList.remove("div-disabled");
             // Clear existing singularities
             while(singularitiesGroup.children.length > 0){ 
                 singularitiesGroup.remove(singularitiesGroup.children[0]); 
@@ -1638,6 +1682,7 @@
         document.addEventListener('DOMContentLoaded', init);
         // 页面加载时加载根目录文件夹
         
+
         // Clean up when window is closed
         window.addEventListener('beforeunload', () => {
             cancelAnimationFrame(animationId);
@@ -1646,6 +1691,7 @@
             }
         });
         
+
         // streamlines
         function removeStreamlines() {
             renderer.clear();
@@ -1678,6 +1724,7 @@
             }
         };
 
+
         function createStreamlines() {
 
             // clear streamlines from previous frame
@@ -1688,6 +1735,7 @@
             container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "visible"
+            timeControl.classList.remove("div-disabled");
             present_streamlines = true;
 
             if (present_streamlines == true){
@@ -1787,6 +1835,7 @@
             
         };
 
+
         // 加载subject列表
         async function loadSubjectList(path = '') {
             try {
@@ -1836,6 +1885,7 @@
                 folderSelect.innerHTML = '<option value="">Failed to load subject names</option>';
             }
         }
+
 
         // 加载文件列表
         async function loadFileList(subject) {
@@ -1934,7 +1984,12 @@
                 current_timepoint -= 1;
                 timeSlider.value = current_timepoint;
                 const times_currenttime = PVF_times[current_timepoint];
-                updatePVFStreamlines();
+                if (present_PVF == true || present_streamlines == true){
+                    updatePVFStreamlines();
+                }{
+                    loadVolume();
+                }
+                
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
                 timeStat.innerHTML = times_currenttime.toFixed(2);
             }
@@ -1948,11 +2003,17 @@
                 current_timepoint = Number(current_timepoint);
                 timeSlider.value = current_timepoint;
                 const times_currenttime = PVF_times[current_timepoint];
-                updatePVFStreamlines();
+                if (present_PVF == true || present_streamlines == true){
+                    updatePVFStreamlines();
+                }else{
+                    loadVolume();
+                }
+                
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
                 timeStat.innerHTML = times_currenttime.toFixed(2);
             }
         };
+
 
         async function loadFile() {
             // 这里可以实现加载选中文件夹内文件的逻辑
@@ -1962,6 +2023,7 @@
             container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "visible"
+            timeControl.classList.remove("div-disabled");
             
             subject = folderSelect.value;
             file    = fileSelect.value;
@@ -2021,6 +2083,7 @@
 
             showError("PVF and streamlines loaded successfully.");
             const time_control_div = document.getElementById("time-control-module");
+            time_control_div.visibility = "visible"
             time_control_div.classList.remove("div-disabled");
             loadingIndicator.classList.add('hidden', 'opacity-0');
 
@@ -2065,6 +2128,7 @@
 
             loadingIndicator.classList.add('hidden', 'opacity-0');
         }
+
 
         function createModeVectorFields(){
             removeStreamlines();
@@ -2117,10 +2181,14 @@
             loadingIndicator.classList.add('opacity-0', 'hidden');
         }
 
+
         function showTemporalModes(){
-            console.log(PVF_temporal_modes.length)
+            console.log(PVF_temporal_modes)
             modeID = modeSelect.value - 1;
             // 1. 创建Canvas元素（插入到chartContainer中）
+            const sensor_signals = document.getElementById('sensor-signal-plot');
+            sensor_signals.style.visibility = "hidden"
+            sensor_signals.innerHTML = ""
             const container = document.getElementById('time-mode-plot');
             container.style.visibility = "visible"
             container.innerHTML = ""
@@ -2223,6 +2291,212 @@
                 data: chartData,
                 options: chartOptions,
             });
+        }
+
+        function showSensorSignals(){
+            Chart.register(annotationPlugin); 
+            // console.log(PVF_sensor_signals.length)
+            
+            // 1. 创建Canvas元素（插入到chartContainer中）
+            const time_mode = document.getElementById('time-mode-plot');
+            time_mode.style.visibility = "hidden"
+            time_mode.innerHTML = ""
+            const timeControl = document.getElementById('time-control-module');
+            timeControl.style.visibility = "visible"
+            timeControl.classList.remove("div-disabled");
+            const container = document.getElementById('sensor-signal-plot');
+            container.style.visibility = "visible"
+            container.innerHTML = ""
+            const canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+            canvas.width  = "100%";
+            canvas.height = "100%";
+
+            // 2. 定义颜色数组（10种不同颜色，可自定义）
+            const lineColors = ['#C0C0C0', '#df5c4e', '#a8b7ff', "#ff4545", '#ffc45c', 
+                                '##feda57', '#a4c6eb', '#cfeaf4', '#9dba6f', '#a9c97a', 
+                                '#c27c87', '#6b86a5', '#5e7684', '#136b87', '#4e5c35', 
+                                '#ffe6d4', '#4a7c82', '#c27c87', '#6e3f4a', '#787f72'];
+
+            // 3. 构造Chart.js所需数据格式
+            const datasets = []
+            // for (let i = 0; i < PVF_sensor_signals.length; i++) {
+            for (let i = 0; i < 306; i++) {
+                line = PVF_sensor_signals[i]
+                line = line.map(item => (item * 1000).toFixed(2));
+                datasets.push(
+                    {
+                       label               : `mode ${i+1}`,
+                       data                : line,
+                       borderColor         : lineColors[0],          // 折线边框透明度
+                       borderWidth         : 0.2,                    // 高亮折线稍粗，提升辨识度
+                       tension             : 0.2,
+                       fill                : false,
+                        // pointBackgroundColor: isHighlight ? highlightColor: transparentColor, // 数据点透明度
+                       pointRadius         : 0.5                     // 高亮数据点稍大
+                    }
+                )
+            }
+
+            const chartData = {
+                labels: PVF_sensor_signals[0].map((_, index) => index), // x轴标签（0~299）
+                datasets: datasets
+            }
+            // const chartData = {
+            //     labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
+            //     datasets: PVF_temporal_modes.map((line, index) => ({
+            //         label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
+            //         data: line.map((yValue, xIndex) => ({ 
+            //             x: xIndex, // x轴：使用数组索引（0 ~ 299）
+            //             y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
+            //         })),
+            //         borderColor    : lineColors[index], // 线条颜色
+            //         backgroundColor: lineColors[index], // 填充颜色（透明，可选） + '33'
+            //         borderWidth    : 0,                 // 线条宽度
+            //         fill           : false,             // 不填充线下区域
+            //         tension        : 0.2,               // 折线（无平滑，如需平滑可设为0.4）
+            //         // point: {
+            //         //     radius     : 0, // 点半径设为0，隐藏点
+            //         //     hoverRadius: 0, // 鼠标悬浮时点半径也设为0
+            //         //     display    : false // 直接禁用点显示
+            //         // },// 隐藏数据点（300个点无需显示，提升性能）
+            //     }))
+            // };
+            console.log(current_timepoint)
+            // 4. 配置Chart.js选项（背景透明、图例显示等）
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                backgroundColor: 'transparent', // 图表背景透明
+                plugins: {
+                    annotation:{
+                        annotations:{
+                            line1: {
+                                    type: 'line',
+                                    xMin: current_timepoint, // Value on the x-axis
+                                    xMax: current_timepoint,
+                                    borderColor: '#df5c4e',
+                                    borderWidth: 4,
+                                    label: {
+                                    display: true,
+                                    content: 'Time line'
+                                    }
+                                }
+                        }
+                    }, 
+                    title: {
+                        font   : {size: 30},
+                        display: true,
+                        color  : '#cfeaf4',  // 图例文字颜色
+                        text   : 'Sensor signals'
+                    },
+                    legend: {
+                        display: false, // 显示图例
+                        position: 'top', // 图例位置（右侧，可改为top/bottom/left）
+                        labels: {
+                            color: '#cfeaf4', // 图例文字颜色
+                            font: { size: 24 }
+                        }
+                    },
+                    tooltip: { enabled: true } // 鼠标悬浮提示（可选）
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }, // 隐藏x轴网格线（可选）
+                        ticks: { color: '#666' }
+                    },
+                    y: {
+                        grid: { color: '#eee' }, // y轴网格线（可选）
+                        ticks: { color: '#666' }
+                    }
+                }
+            
+            };
+
+            // 5. 初始化图表并绘制
+            new Chart(canvas, {
+                type: 'line',
+                data: chartData,
+                options: chartOptions,
+            });
+        }
+        
+        async function loadVolume(){
+            subject = folderSelect.value;
+            file    = seFileSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
+            }
+            const data = await response.json();
+            positions       = data.positions;
+            scalars      = data.values;
+            const volumePoints = createVolume(positions, scalars, 2, 0.7);
+            if (volumePoints) {
+                scene.add(volumePoints);
+            }
+            controls.update(); // 更新控制器
+            renderer.render(scene, camera);
+        }
+
+        function createVolume(positions, values, pointSize = 1, opacity = 0.7) {
+            // 验证数据合法性
+            if (positions.length !== values.length) {
+                console.error("位置数组和数值数组长度不匹配");
+                return null;
+            }
+
+            // 计算数值的最大值和最小值（用于颜色映射）
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            const valueRange = maxValue - minValue;
+
+            // 创建几何体
+            const geometry = new THREE.BufferGeometry();
+            
+            // 将位置数据转换为Float32Array
+            const positionArray = new Float32Array(positions.flat());
+            geometry.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
+
+            // 创建颜色数组（基于数值映射）
+            const colorArray = new Float32Array(positions.length * 3);
+            for (let i = 0; i < values.length; i++) {
+                // 归一化数值 (0-1)
+                const normalizedValue = (values[i] - minValue) / valueRange;
+                
+                // 颜色映射：蓝色(低值) -> 绿色 -> 红色(高值)
+                let r = 0, g = 0, b = 0;
+                if (normalizedValue < 0.5) {
+                    // 蓝色到绿色
+                    b = 1 - 2 * normalizedValue;
+                    g = 2 * normalizedValue;
+                } else {
+                    // 绿色到红色
+                    g = 2 - 2 * normalizedValue;
+                    r = 2 * normalizedValue - 1;
+                }
+
+                // 设置颜色值
+                colorArray[i * 3] = r;
+                colorArray[i * 3 + 1] = g;
+                colorArray[i * 3 + 2] = b;
+            }
+            geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+            // 创建材质（支持透明度）
+            const material = new THREE.PointsMaterial({
+                size: pointSize,
+                vertexColors: true, // 使用顶点颜色
+                transparent: true,  // 启用透明
+                opacity: opacity,   // 设置透明度
+                depthWrite: false,  // 解决透明物体重叠问题
+                blending: THREE.AdditiveBlending // 叠加混合模式，增强透明效果
+            });
+
+            // 创建Points对象
+            const points = new THREE.Points(geometry, material);
+            return points;
         }
 
         // 显示错误信息
