@@ -108,8 +108,8 @@ async def load_subject_source_estimate_file(subject         : str             = 
                                             file            : str             = Query(None),):
     global subjects_loaded_pvf_data
     load_subject_source_estimate(subject_name=subject, file_name=file, timepoint=0)
-    sensor_signals = subjects_loaded_pvf_data[subject]["source_estimate"][file]['sensor_signals'].T.tolist() # in the form of time * channels
-    return {'sensor_signals': sensor_signals}
+    sensor_signals = subjects_loaded_pvf_data[subject]["source_estimate"][file]['sensor_signals'][:-2, :].T * 1000 # in the form of time * channels
+    return {'sensor_signals': sensor_signals.tolist()}
 
 @app.get("/api/update-source-estimate")
 async def update_subject_source_estimate_file(subject         : str             = Query(None),
@@ -501,10 +501,10 @@ def load_subject_source_estimate(subject_name: str, file_name: str, timepoint: s
         subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_vert_no'] = src_est.vertices[0]
         subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['sensor_signals'] = sensor_signals
 
-    source_data_time = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_signals'][:, timepoint]
+    source_data_time = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_signals'][:, int(timepoint)]
     source_vert_no   = subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['source_vert_no']
     source_positions = subjects_loaded_pvf_data[subject_name]['vol_src'][0]['rr'][source_vert_no] * 1000
-
+    source_data_time = source_data_time * 1000
     return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
 
 

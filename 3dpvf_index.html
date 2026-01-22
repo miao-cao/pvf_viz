@@ -223,6 +223,10 @@
 
                         <label class="block text-sm font-medium text-light/80 mb-1">Source estimate</label>
                         <div class="flex items-center">
+                            <input type="checkbox" id="show-source" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-source" class="ml-2 text-sm text-light/80">Show source estimate</label>
+                        </div>
+                        <div class="flex items-center">
                             <button id="present-source-estimate" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadVolume()">
                                 <i class="fas fa-long-arrow-right"></i>
                                 <span>Present source estimate</span>
@@ -490,7 +494,7 @@
                 </div>
             </div>
             <!-- Time control module -->
-            <div id="time-control-module" class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[50rem] rounded-xl p-4 border border-white/10 mb-4">
+            <div id="time-control-module" class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[80rem] rounded-xl p-4 border border-white/10 mb-4">
                 <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
                     <i class="fas fa-play text-primary"></i>
                     Time control
@@ -519,7 +523,7 @@
                         </button>
                     </div>
                     
-                    <div class="flex gap-2">
+                    <!-- <div class="flex gap-2">
                         <button id="play-pause" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
                             <i class="fas fa-play"></i>
                             <span>Play</span>
@@ -528,13 +532,13 @@
                             <i class="fas fa-redo"></i>
                             <span>Reset</span>
                         </button>
-                    </div>
+                    </div> -->
                 </div>
                 
             </div>
 
             <!-- Sensor signal plot canvas -->
-            <div id="sensor-signal-plot" class="absolute absolute top-2/3 left-1/2 -translate-x-1/2 w-[90rem] h-[20rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
+            <div id="sensor-signal-plot" class="absolute absolute top-3/4 left-1/2 -translate-x-1/2 w-[90rem] h-[20rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
             </div>
 
             <!-- Temporal mode plot canvas -->
@@ -628,6 +632,7 @@
         let vectorField     = [];
         let modeVectorField = [];
         let vectorObjects   = [];
+        let volumeObjects   = [];
         let particles       = [];
         let isAnimating     = false;
         let lastTime        = 0;
@@ -990,7 +995,8 @@
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
                     showSensorSignals();
-                }else{
+                }
+                if (present_source_estimate == true){
                     loadVolume();
                     showSensorSignals();
                 }
@@ -999,12 +1005,24 @@
                 showError(current_timepoint)
                 // updateVectorObjects();
             });
+
+            document.getElementById('show-source').addEventListener('change', (e) => {
+                present_source_estimate = e.target.checked;
+                // createSingularities();
+                if (present_source_estimate == true){
+                    loadVolume();
+                    showSensorSignals();
+                }else{
+                    clearVolume();
+                }
+                               
+            });
                         
             // Play/pause animation
-            document.getElementById('play-pause').addEventListener('click', toggleAnimation);
+            // document.getElementById('play-pause').addEventListener('click', toggleAnimation);
             
             // Reset animation
-            document.getElementById('reset-animation').addEventListener('click', resetAnimation);
+            // document.getElementById('reset-animation').addEventListener('click', resetAnimation);
         }
 
 
@@ -1551,17 +1569,17 @@
         
         // Toggle animation
         function toggleAnimation() {
-            isAnimating = !isAnimating;
-            const playPauseBtn = document.getElementById('play-pause');
+            // isAnimating = !isAnimating;
+            // const playPauseBtn = document.getElementById('play-pause');
             
-            if (isAnimating) {
-                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
-                if (settings.showStreamlines && !this.particles) {
-                    // createParticles();
-                }
-            } else {
-                playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
-            }
+            // if (isAnimating) {
+            //     playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
+            //     if (settings.showStreamlines && !this.particles) {
+            //         // createParticles();
+            //     }
+            // } else {
+            //     playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
+            // }
         }
         
         // Reset animation
@@ -1986,8 +2004,11 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                }{
+                    showSensorSignals();
+                }
+                if (present_source_estimate == true){
                     loadVolume();
+                    showSensorSignals();
                 }
                 
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
@@ -2005,8 +2026,11 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                }else{
+                    showSensorSignals();
+                }
+                if (present_source_estimate == true){
                     loadVolume();
+                    showSensorSignals();
                 }
                 
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
@@ -2294,7 +2318,7 @@
         }
 
         function showSensorSignals(){
-            Chart.register(annotationPlugin); 
+            // Chart.register(annotationPlugin); 
             // console.log(PVF_sensor_signals.length)
             
             // 1. 创建Canvas元素（插入到chartContainer中）
@@ -2323,7 +2347,7 @@
             // for (let i = 0; i < PVF_sensor_signals.length; i++) {
             for (let i = 0; i < 306; i++) {
                 line = PVF_sensor_signals[i]
-                line = line.map(item => (item * 1000).toFixed(2));
+                // line = line.map(item => (item * 1000).toFixed(2));
                 datasets.push(
                     {
                        label               : `mode ${i+1}`,
@@ -2422,19 +2446,26 @@
         }
         
         async function loadVolume(){
+            document.getElementById('show-source').checked = true;
             subject = folderSelect.value;
             file    = seFileSelect.value;
             const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
+
+            
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
                 throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
             }
             const data = await response.json();
-            positions       = data.positions;
-            scalars      = data.values;
-            const volumePoints = createVolume(positions, scalars, 2, 0.7);
-            if (volumePoints) {
-                scene.add(volumePoints);
+            positions = data.positions;
+            scalars   = data.values;
+
+            clearVolume();
+            // const volumePoints = createSphereVolumeVisualizationCompat(positions, scalars, 8, 0.4);
+            console.log(current_timepoint)
+            volumeObjects = createSphereVolumeVisualizationCompat(positions, scalars, 3, 0.5);
+            if (volumeObjects) {
+                scene.add(volumeObjects);
             }
             controls.update(); // 更新控制器
             renderer.render(scene, camera);
@@ -2493,10 +2524,196 @@
                 depthWrite: false,  // 解决透明物体重叠问题
                 blending: THREE.AdditiveBlending // 叠加混合模式，增强透明效果
             });
+            // material.opacity = opacity * (normalizedValue + 0.1);
 
             // 创建Points对象
             const points = new THREE.Points(geometry, material);
             return points;
+        }
+
+
+
+
+        function createCloudMaterial(baseColor, opacity = 0.3) {
+            // 自定义着色器：让球体边缘羽化模糊
+            return new THREE.ShaderMaterial({
+                uniforms: {
+                    color: { value: baseColor },
+                    opacity: { value: opacity },
+                    // 模糊范围（越大越模糊）
+                    blurRadius: { value: 0.8 }
+                },
+                vertexShader: `
+                    varying vec3 vPosition;
+                    void main() {
+                        vPosition = position;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 color;
+                    uniform float opacity;
+                    uniform float blurRadius;
+                    varying vec3 vPosition;
+
+                    void main() {
+                        // 计算像素到球心的距离（归一化）
+                        float distance = length(vPosition);
+                        // 羽化边缘：距离越大，透明度越低（模拟云雾模糊）
+                        float alpha = smoothstep(1.0, 1.0 - blurRadius, distance) * opacity;
+                        // 叠加噪声（可选，增强云朵纹理）
+                        float noise = fract(sin(dot(vPosition, vec3(12.9898, 78.233, 45.5432))) * 43758.5453);
+                        alpha *= (0.8 + noise * 0.4); // 噪声扰动透明度
+                        
+                        gl_FragColor = vec4(color, alpha);
+                    }
+                `,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending, // 叠加混合，模拟云雾叠加效果
+                depthTest: false // 关闭深度测试，增强模糊融合
+            });
+        }
+
+        function createCloudVolumeVisualization(positions, values, sphereRadius = 1.2, opacity = 0.3) {
+            if (positions.length !== values.length) {
+                console.error("位置数组和数值数组长度不匹配");
+                return null;
+            }
+            const cloudGroup = new THREE.Group();
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            const valueRange = maxValue - minValue || 1;
+            const color = new THREE.Color();
+
+            for (let i = 0; i < positions.length; i++) {
+                const [x, y, z] = positions[i];
+                const normalizedValue = (values[i] - minValue) / valueRange;
+                
+                // 1. 颜色映射：蓝→白→粉（云朵色系）
+                color.setHSL(0.7 - normalizedValue * 0.5, 0.8, 0.6 + normalizedValue * 0.2);
+                
+                // 2. 创建模糊球体（降低分段数，让边缘更"糙"，像云朵）
+                const sphereGeo = new THREE.SphereGeometry(sphereRadius, 8, 6); // 低分段=更模糊的轮廓
+                const sphereMat = createCloudMaterial(color, opacity);
+                
+                const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+                sphere.position.set(x, y, z);
+                
+                // 3. 随机缩放（模拟云朵不规则形状）
+                const scale = 0.8 + Math.random() * 0.6;
+                sphere.scale.set(scale, scale, scale);
+                
+                cloudGroup.add(sphere);
+            }
+            return cloudGroup;
+        }
+
+        // ===================== 工具函数：十六进制颜色转RGB =====================
+        function hexToRgb(hex) {
+            hex = hex.replace(/^#/, '');
+            const r = parseInt(hex.substring(0, 2), 16) / 255;
+            const g = parseInt(hex.substring(2, 4), 16) / 255;
+            const b = parseInt(hex.substring(4, 6), 16) / 255;
+            return { r, g, b };
+        }
+
+        function createSphereVolumeVisualizationCompat(positions, values, sphereRadius = 0.5, opacity = 0.7) {
+            if (positions.length !== values.length) {
+                console.error("位置数组和数值数组长度不匹配");
+                return null;
+            }
+            const sphereGroup = new THREE.Group();
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            const valueRange = maxValue - minValue || 1;
+            const color = new THREE.Color();
+
+            maxOpacity = opacity
+            
+            // 1. 定义分段颜色（可自定义）
+            const colorBlueDeep = hexToRgb('c6e2ff');   // 低值起始：深蓝（自定义）
+            const colorBlueLight = hexToRgb('f0f8ff');  // 低值结束：浅蓝（指定）
+            const colorRedLight = hexToRgb('ffc8a2');   // 高值起始：浅红（自定义）
+            const colorRedDeep = hexToRgb('ff968a');    // 高值结束：橙红（指定）
+            
+            // 2. 定义分段阈值（可调整）
+            const lowEnd = 0.4;    // 低值段结束点（0~0.4：蓝→浅蓝）
+            const highStart = 0.6; // 高值段起始点（0.6~1：浅红→橙红）
+            const midPoint = 0.5;  // 中间透明点
+
+
+            for (let i = 0; i < positions.length; i++) {
+                const [x, y, z] = positions[i];
+                const normalizedValue = (values[i] - minValue) / valueRange;
+                // 3. 分段颜色插值（核心）
+                let r, g, b;
+                if (normalizedValue <= lowEnd) {
+                    // 段1：0~0.4 → 深蓝 → 浅蓝
+                    const t = normalizedValue / lowEnd; // 映射到0~1
+                    r = colorBlueDeep.r + (colorBlueLight.r - colorBlueDeep.r) * t;
+                    g = colorBlueDeep.g + (colorBlueLight.g - colorBlueDeep.g) * t;
+                    b = colorBlueDeep.b + (colorBlueLight.b - colorBlueDeep.b) * t;
+                } else if (normalizedValue >= highStart) {
+                    // 段3：0.6~1 → 浅红 → 橙红
+                    const t = (normalizedValue - highStart) / (1 - highStart); // 映射到0~1
+                    r = colorRedLight.r + (colorRedDeep.r - colorRedLight.r) * t;
+                    g = colorRedLight.g + (colorRedDeep.g - colorRedLight.g) * t;
+                    b = colorRedLight.b + (colorRedDeep.b - colorRedLight.b) * t;
+                } else {
+                    // 段2：0.4~0.6 → 浅蓝→浅红过渡（中间透明，颜色过渡不明显）
+                    const t = (normalizedValue - lowEnd) / (highStart - lowEnd); // 0~1
+                    r = colorBlueLight.r + (colorRedLight.r - colorBlueLight.r) * t;
+                    g = colorBlueLight.g + (colorRedLight.g - colorBlueLight.g) * t;
+                    b = colorBlueLight.b + (colorRedLight.b - colorBlueLight.b) * t;
+                }
+                color.setRGB(r, g, b);
+
+                // 4. 透明度插值（两端高、中间透明，匹配颜色分段）
+                let dynamicOpacity;
+                if (normalizedValue <= midPoint) {
+                    dynamicOpacity = maxOpacity * (1 - normalizedValue / midPoint);
+                } else {
+                    dynamicOpacity = maxOpacity * ((normalizedValue - midPoint) / (1 - midPoint));
+                }
+
+                // 1. 创建单个球体（无实例化，无instanceColor问题）
+                const sphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(sphereRadius, 8, 6), // 降低分段数提升性能
+                    new THREE.MeshPhongMaterial({
+                        color: color,
+                        transparent: true,
+                        opacity: dynamicOpacity,
+                        depthWrite: false
+                    })
+                );
+                sphere.position.set(x, y, z);
+                const scale = 0.8 + Math.random() * 0.6;
+                sphere.scale.set(scale, scale, scale);
+                sphereGroup.add(sphere);
+            }
+            return sphereGroup;
+        }
+
+        function clearVolume() {
+            if (!volumeObjects) return;
+
+            // 1. 从场景中移除对象
+            scene.remove(volumeObjects);
+
+            // 2. 释放几何体内存（关键：避免内存泄漏）
+            if (volumeObjects.geometry) {
+                volumeObjects.geometry.dispose();
+            }
+
+            // 3. 释放材质内存
+            if (volumeObjects.material) {
+                volumeObjects.material.dispose();
+            }
+
+            // 4. 清空引用（帮助JS垃圾回收）
+            volumeObjects = null;
+            renderer.clear();
         }
 
         // 显示错误信息
