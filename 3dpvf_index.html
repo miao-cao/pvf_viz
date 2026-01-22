@@ -20,6 +20,9 @@
     <link rel="preload" href="assets/js/chart/chart.umd.min.js" as="script">
     <script src="assets/js/chart/chart.umd.min.js"></script>
 
+    <link rel="preload" href="assets/js/chart/chartjs-plugin-annotation.min.js" as="script">
+    <script src="assets/js/chart/chartjs-plugin-annotation.min.js"></script>
+
     <link rel="preload" href="assets/js/d3/d3.min.js" as="script">
     <script src="assets/js/d3/d3.min.js"></script>
 
@@ -538,7 +541,7 @@
             </div>
 
             <!-- Sensor signal plot canvas -->
-            <div id="sensor-signal-plot" class="absolute absolute top-3/4 left-1/2 -translate-x-1/2 w-[90rem] h-[20rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
+            <div id="sensor-signal-plot" class="fixed top-[150px] left-1/2 -translate-x-1/2 w-[90rem] h-[20rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
             </div>
 
             <!-- Temporal mode plot canvas -->
@@ -639,6 +642,7 @@
         let fps             = 0;
         let gridHelper;
         let animationId;
+        let sensor_signal_chart;
 
         // const BufferGeometryUtils = require('three/addons/utils/BufferGeometryUtils.js');
         
@@ -994,11 +998,13 @@
                 timeStat.innerHTML = times_currenttime.toFixed(2);
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                    showSensorSignals();
+                    // showSensorSignals();
+                    updateVerticalLine();
                 }
                 if (present_source_estimate == true){
                     loadVolume();
-                    showSensorSignals();
+                    // showSensorSignals();
+                    updateVerticalLine();
                 }
                 
                 
@@ -2004,11 +2010,13 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                    showSensorSignals();
+                    // showSensorSignals();
+                    updateVerticalLine();
                 }
                 if (present_source_estimate == true){
                     loadVolume();
-                    showSensorSignals();
+                    // showSensorSignals();
+                    updateVerticalLine();
                 }
                 
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
@@ -2026,11 +2034,13 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                    showSensorSignals();
+                    // showSensorSignals();
+                    updateVerticalLine();
                 }
                 if (present_source_estimate == true){
                     loadVolume();
-                    showSensorSignals();
+                    // showSensorSignals();
+                    updateVerticalLine();
                 }
                 
                 timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
@@ -2318,7 +2328,7 @@
         }
 
         function showSensorSignals(){
-            // Chart.register(annotationPlugin); 
+            // Chart.register(ChartAnnotation);
             // console.log(PVF_sensor_signals.length)
             
             // 1. 创建Canvas元素（插入到chartContainer中）
@@ -2363,7 +2373,7 @@
             }
 
             const chartData = {
-                labels: PVF_sensor_signals[0].map((_, index) => index), // x轴标签（0~299）
+                labels: PVF_times.map(item => item.toFixed(2)), // x轴
                 datasets: datasets
             }
             // const chartData = {
@@ -2386,7 +2396,7 @@
             //         // },// 隐藏数据点（300个点无需显示，提升性能）
             //     }))
             // };
-            console.log(current_timepoint)
+            current_time = PVF_times[0]
             // 4. 配置Chart.js选项（背景透明、图例显示等）
             const chartOptions = {
                 responsive: true,
@@ -2395,17 +2405,22 @@
                 plugins: {
                     annotation:{
                         annotations:{
-                            line1: {
-                                    type: 'line',
-                                    xMin: current_timepoint, // Value on the x-axis
-                                    xMax: current_timepoint,
-                                    borderColor: '#df5c4e',
-                                    borderWidth: 4,
-                                    label: {
+                            verticalLine: {
+                                type: 'line',        // 类型：线
+                                scaleID: 'x',        // 绑定 X 轴（画垂直线必须）
+                                value: 0,           // X 轴上的位置（比如50这个刻度）
+                                borderColor: '#df5c4e', // 线的颜色
+                                borderWidth: 2,      // 线的宽度
+                                // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
+                                // 可选：添加标签
+                                label: {
                                     display: true,
-                                    content: 'Time line'
-                                    }
+                                    content: 'Time line', // 标签文字
+                                    position: 'top',   // 标签位置（top/bottom/start/end）
+                                    color: '#fff',     // 标签文字颜色
+                                    backgroundColor: '#df5c4e' // 标签背景色
                                 }
+                            }
                         }
                     }, 
                     title: {
@@ -2438,13 +2453,20 @@
             };
 
             // 5. 初始化图表并绘制
-            new Chart(canvas, {
-                type: 'line',
-                data: chartData,
-                options: chartOptions,
-            });
+            sensor_signal_chart = new Chart(canvas, {
+                                                    type: 'line',
+                                                    data: chartData,
+                                                    options: chartOptions,
+                                                });
         }
-        
+
+        function updateVerticalLine() {
+            current_time = PVF_times[current_timepoint].toFixed(2)
+            console.log(current_timepoint)
+            sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.value = current_time;
+            sensor_signal_chart.update(); // 刷新图表
+        }
+
         async function loadVolume(){
             document.getElementById('show-source').checked = true;
             subject = folderSelect.value;
@@ -2462,7 +2484,7 @@
 
             clearVolume();
             // const volumePoints = createSphereVolumeVisualizationCompat(positions, scalars, 8, 0.4);
-            console.log(current_timepoint)
+            // console.log(current_timepoint)
             volumeObjects = createSphereVolumeVisualizationCompat(positions, scalars, 3, 0.5);
             if (volumeObjects) {
                 scene.add(volumeObjects);
