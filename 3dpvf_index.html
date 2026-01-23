@@ -884,7 +884,7 @@
             toggleFullscreenBtn.addEventListener('click', toggleFullscreen);
             
             // Export data button
-            exportDataBtn.addEventListener('click', forceExport3DScreenshot);
+            exportDataBtn.addEventListener('click', export3DScreenshot);
         }
         
         // Handle window resize
@@ -999,12 +999,10 @@
                 timeStat.innerHTML = times_currenttime.toFixed(2);
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                    // showSensorSignals();
                     updateVerticalLine();
                 }
                 if (present_source_estimate == true){
                     loadVolume();
-                    // showSensorSignals();
                     updateVerticalLine();
                 }
                 
@@ -1017,8 +1015,8 @@
                 present_source_estimate = e.target.checked;
                 // createSingularities();
                 if (present_source_estimate == true){
-                    loadVolume();
                     showSensorSignals();
+                    loadVolume();
                 }else{
                     clearVolume();
                 }
@@ -1647,7 +1645,7 @@
          * @param {number} targetWidth  期望宽度（默认 3840）
          * @param {number} targetHeight 期望高度（默认 2160）
          */
-        function forceExport3DScreenshot(targetWidth = 3840, targetHeight = 2160) {
+        function export3DScreenshot(targetWidth = 3840, targetHeight = 2160) {
             targetWidth  = 3840;
             targetHeight = 2160;
             /* ---------- 1. 保存当前状态 ---------- */
@@ -2018,12 +2016,10 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                    // showSensorSignals();
                     updateVerticalLine();
                 }
                 if (present_source_estimate == true){
                     loadVolume();
-                    // showSensorSignals();
                     updateVerticalLine();
                 }
                 
@@ -2042,12 +2038,10 @@
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
-                    // showSensorSignals();
                     updateVerticalLine();
                 }
                 if (present_source_estimate == true){
                     loadVolume();
-                    // showSensorSignals();
                     updateVerticalLine();
                 }
                 
@@ -2385,27 +2379,8 @@
                 labels: PVF_times.map(item => item.toFixed(2)), // x轴
                 datasets: datasets
             }
-            // const chartData = {
-            //     labels: PVF_temporal_modes[0].map((_, index) => index), // x轴标签（0~299）
-            //     datasets: PVF_temporal_modes.map((line, index) => ({
-            //         label: `mode ${index + 1}`, // 图例名称：mode 1 ~ mode 10
-            //         data: line.map((yValue, xIndex) => ({ 
-            //             x: xIndex, // x轴：使用数组索引（0 ~ 299）
-            //             y: yValue  // y轴：使用矩阵中的原始数值（无需解构）
-            //         })),
-            //         borderColor    : lineColors[index], // 线条颜色
-            //         backgroundColor: lineColors[index], // 填充颜色（透明，可选） + '33'
-            //         borderWidth    : 0,                 // 线条宽度
-            //         fill           : false,             // 不填充线下区域
-            //         tension        : 0.2,               // 折线（无平滑，如需平滑可设为0.4）
-            //         // point: {
-            //         //     radius     : 0, // 点半径设为0，隐藏点
-            //         //     hoverRadius: 0, // 鼠标悬浮时点半径也设为0
-            //         //     display    : false // 直接禁用点显示
-            //         // },// 隐藏数据点（300个点无需显示，提升性能）
-            //     }))
-            // };
-            current_time = PVF_times[0]
+
+            current_time = PVF_times[0].toFixed(2)
             // 4. 配置Chart.js选项（背景透明、图例显示等）
             const chartOptions = {
                 responsive: true,
@@ -2415,12 +2390,12 @@
                     annotation:{
                         annotations:{
                             verticalLine: {
-                                type: 'line',        // 类型：线
-                                scaleID: 'x',        // 绑定 X 轴（画垂直线必须）
-                                value: 0,           // X 轴上的位置（比如50这个刻度）
-                                borderColor: '#df5c4e', // 线的颜色
-                                borderWidth: 2,      // 线的宽度
-                                // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
+                                type       : 'line',        // 类型：线
+                                scaleID    : 'x',           // 绑定 X 轴（画垂直线必须）
+                                value      : current_time,  // X 轴上的位置（比如50这个刻度）
+                                borderColor: '#df5c4e',     // 线的颜色
+                                borderWidth: 2,             // 线的宽度
+                                // borderDash: [5, 5],      // 可选：虚线（[实线长度, 间隔长度]）
                                 // 可选：添加标签
                                 label: {
                                     display: true,
@@ -2562,83 +2537,98 @@
         }
 
 
+        // ===================== 2. 核心工具函数 =====================
+        /**
+         * 激活强度映射为颜色（低→中→高：蓝→黄→红）
+         * @param {number} strength 激活强度（0~1归一化）
+         * @returns {THREE.Color} 颜色对象
+         */
+        function getActivationColor(strength) {
+            const color = new THREE.Color();
+            if (strength < 0.5) {
+                // 低激活：浅蓝 → 黄（0~0.5）
+                const t = strength * 2;
+                color.lerpColors(new THREE.Color(0x8FB4DC), new THREE.Color(0xFEDA57), t);
+            } else {
+                // 高激活：黄 → 红（0.5~1）
+                const t = (strength - 0.5) * 2;
+                color.lerpColors(new THREE.Color(0xFEDA57), new THREE.Color(0xED8828), t);
+            }
+            return color;
+        }
 
+        // ===================== 4. 渲染激活图（核心） =====================
+        function renderActivationPoints(positions, values, pointSize = 1, opacity = 0.7) {
+            // 1. 准备粒子数据
+            // const positions = [];
+            const minValue   = Math.min(...values);
+            const maxValue   = Math.max(...values);
+            const valueRange = maxValue - minValue || 1;
+            const color      = new THREE.Color();
+            const colors     = [];
+            const sizes      = [];
+            const alphas     = [];
 
-        function createCloudMaterial(baseColor, opacity = 0.3) {
-            // 自定义着色器：让球体边缘羽化模糊
-            return new THREE.ShaderMaterial({
+            values.forEach(value => {
+                // 颜色（映射激活强度）
+                const color = getActivationColor(strength);
+                colors.push(color.r, color.g, color.b);
+                // 大小（激活越强越大：0.5~3）
+                const size = 0.5 + strength * 2.5;
+                sizes.push(size);
+                // 透明度（激活越强越不透明：0.2~1）
+                const alpha = 0.2 + strength * 0.8;
+                alphas.push(alpha);
+            });
+
+            // 2. 创建粒子几何体
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+            geometry.setAttribute('alpha', new THREE.Float32BufferAttribute(alphas, 1));
+
+            // 3. 自定义粒子材质（关键：实现大小/透明度/颜色的个性化）
+            const material = new THREE.ShaderMaterial({
                 uniforms: {
-                    color: { value: baseColor },
-                    opacity: { value: opacity },
-                    // 模糊范围（越大越模糊）
-                    blurRadius: { value: 0.8 }
+                    pointTexture: { value: new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png') }
                 },
                 vertexShader: `
-                    varying vec3 vPosition;
+                    attribute float size;
+                    attribute float alpha;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    varying float vAlpha;
                     void main() {
-                        vPosition = position;
-                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        vColor = color;
+                        vAlpha = alpha;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (100.0 / -mvPosition.z); // 透视缩放
+                        gl_Position = projectionMatrix * mvPosition;
                     }
                 `,
                 fragmentShader: `
-                    uniform vec3 color;
-                    uniform float opacity;
-                    uniform float blurRadius;
-                    varying vec3 vPosition;
-
+                    uniform sampler2D pointTexture;
+                    varying vec3 vColor;
+                    varying float vAlpha;
                     void main() {
-                        // 计算像素到球心的距离（归一化）
-                        float distance = length(vPosition);
-                        // 羽化边缘：距离越大，透明度越低（模拟云雾模糊）
-                        float alpha = smoothstep(1.0, 1.0 - blurRadius, distance) * opacity;
-                        // 叠加噪声（可选，增强云朵纹理）
-                        float noise = fract(sin(dot(vPosition, vec3(12.9898, 78.233, 45.5432))) * 43758.5453);
-                        alpha *= (0.8 + noise * 0.4); // 噪声扰动透明度
-                        
-                        gl_FragColor = vec4(color, alpha);
+                        gl_FragColor = vec4(vColor, vAlpha);
+                        gl_FragColor = gl_FragColor * texture2D(pointTexture, gl_PointCoord);
                     }
                 `,
                 transparent: true,
-                depthWrite: false,
-                blending: THREE.AdditiveBlending, // 叠加混合，模拟云雾叠加效果
-                depthTest: false // 关闭深度测试，增强模糊融合
+                blending: THREE.AdditiveBlending, // 叠加混合，增强辉光效果
+                depthWrite: false // 避免粒子遮挡
             });
+
+            // 4. 创建粒子系统并添加到场景
+            const points = new THREE.Points(geometry, material);
+            scene.add(points);
+            return points;
         }
 
-        function createCloudVolumeVisualization(positions, values, sphereRadius = 1.2, opacity = 0.3) {
-            if (positions.length !== values.length) {
-                console.error("位置数组和数值数组长度不匹配");
-                return null;
-            }
-            const cloudGroup = new THREE.Group();
-            const minValue = Math.min(...values);
-            const maxValue = Math.max(...values);
-            const valueRange = maxValue - minValue || 1;
-            const color = new THREE.Color();
 
-            for (let i = 0; i < positions.length; i++) {
-                const [x, y, z] = positions[i];
-                const normalizedValue = (values[i] - minValue) / valueRange;
-                
-                // 1. 颜色映射：蓝→白→粉（云朵色系）
-                color.setHSL(0.7 - normalizedValue * 0.5, 0.8, 0.6 + normalizedValue * 0.2);
-                
-                // 2. 创建模糊球体（降低分段数，让边缘更"糙"，像云朵）
-                const sphereGeo = new THREE.SphereGeometry(sphereRadius, 8, 6); // 低分段=更模糊的轮廓
-                const sphereMat = createCloudMaterial(color, opacity);
-                
-                const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-                sphere.position.set(x, y, z);
-                
-                // 3. 随机缩放（模拟云朵不规则形状）
-                const scale = 0.8 + Math.random() * 0.6;
-                sphere.scale.set(scale, scale, scale);
-                
-                cloudGroup.add(sphere);
-            }
-            return cloudGroup;
-        }
-
+        // 颜色定义
         // ===================== 工具函数：十六进制颜色转RGB =====================
         function hexToRgb(hex) {
             hex = hex.replace(/^#/, '');
@@ -2661,16 +2651,7 @@
 
             maxOpacity = opacity
             
-            // 1. 定义分段颜色（可自定义）
-            const colorBlueDeep = hexToRgb('c6e2ff');   // 低值起始：深蓝（自定义）
-            const colorBlueLight = hexToRgb('f0f8ff');  // 低值结束：浅蓝（指定）
-            const colorRedLight = hexToRgb('ffc8a2');   // 高值起始：浅红（自定义）
-            const colorRedDeep = hexToRgb('ff968a');    // 高值结束：橙红（指定）
-            
-            // 2. 定义分段阈值（可调整）
-            const lowEnd = 0.4;    // 低值段结束点（0~0.4：蓝→浅蓝）
-            const highStart = 0.6; // 高值段起始点（0.6~1：浅红→橙红）
-            const midPoint = 0.5;  // 中间透明点
+ 
 
 
             for (let i = 0; i < positions.length; i++) {
@@ -2772,10 +2753,9 @@
             const selectedSubject = e.target.value;
             // showSelectedFolder(selectedSubject);
             loadFileList(selectedSubject);
-            
-            // 如果需要实现多级浏览，可以在这里递归加载子文件夹
-            // loadSubjectList(selectedPath);
         });
+
+
     </script>
 </body>
 </html>
