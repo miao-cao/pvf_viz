@@ -2369,7 +2369,6 @@
                        borderWidth         : 0.2,                    // 高亮折线稍粗，提升辨识度
                        tension             : 0.2,
                        fill                : false,
-                        // pointBackgroundColor: isHighlight ? highlightColor: transparentColor, // 数据点透明度
                        pointRadius         : 0.5                     // 高亮数据点稍大
                     }
                 )
@@ -2380,7 +2379,7 @@
                 datasets: datasets
             }
 
-            current_time = PVF_times[0].toFixed(2)
+            current_time = PVF_times[current_timepoint].toFixed(2)
             // 4. 配置Chart.js选项（背景透明、图例显示等）
             const chartOptions = {
                 responsive: true,
@@ -2390,18 +2389,18 @@
                     annotation:{
                         annotations:{
                             verticalLine: {
-                                type       : 'line',        // 类型：线
-                                scaleID    : 'x',           // 绑定 X 轴（画垂直线必须）
-                                value      : current_time,  // X 轴上的位置（比如50这个刻度）
-                                borderColor: '#df5c4e',     // 线的颜色
-                                borderWidth: 2,             // 线的宽度
-                                // borderDash: [5, 5],      // 可选：虚线（[实线长度, 间隔长度]）
+                                type       : 'line',       // 类型：线
+                                scaleID    : 'x',          // 绑定 X 轴（画垂直线必须）
+                                value      : current_time, // X 轴上的位置（比如50这个刻度）
+                                borderColor: '#df5c4e',    // 线的颜色
+                                borderWidth: 2,            // 线的宽度
+                                // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
                                 // 可选：添加标签
                                 label: {
-                                    display: true,
-                                    content: 'Time line', // 标签文字
-                                    position: 'top',   // 标签位置（top/bottom/start/end）
-                                    color: '#fff',     // 标签文字颜色
+                                    display        : true,
+                                    content        : 'Time line', // 标签文字
+                                    position       : 'top',       // 标签位置（top/bottom/start/end）
+                                    color          : '#fff',      // 标签文字颜色
                                     backgroundColor: '#df5c4e' // 标签背景色
                                 }
                             }
@@ -2445,13 +2444,13 @@
 
         function updateVerticalLine() {
             current_time = PVF_times[current_timepoint].toFixed(2)
-            console.log(current_timepoint)
             sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.value = current_time;
             sensor_signal_chart.update(); // 刷新图表
         }
 
         async function loadVolume(){
             document.getElementById('show-source').checked = true;
+            present_source_estimate = true;
             subject = folderSelect.value;
             file    = seFileSelect.value;
             const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
@@ -2468,7 +2467,8 @@
             clearVolume();
             // const volumePoints = createSphereVolumeVisualizationCompat(positions, scalars, 8, 0.4);
             // console.log(current_timepoint)
-            volumeObjects = createSphereVolumeVisualizationCompat(positions, scalars, 3, 0.5);
+            // volumeObjects = createSphereVolumeVisualizationCompat(positions, scalars, 3, 0.5);
+            volumeObjects = renderActivationPoints(positions, scalars, 1.5, 0.6);
             if (volumeObjects) {
                 scene.add(volumeObjects);
             }
@@ -2556,34 +2556,74 @@
             }
             return color;
         }
-
+        
         // ===================== 4. 渲染激活图（核心） =====================
         function renderActivationPoints(positions, values, pointSize = 1, opacity = 0.7) {
             // 1. 准备粒子数据
-            // const positions = [];
-            const minValue   = Math.min(...values);
-            const maxValue   = Math.max(...values);
-            const valueRange = maxValue - minValue || 1;
-            const color      = new THREE.Color();
-            const colors     = [];
-            const sizes      = [];
-            const alphas     = [];
+            const volume_positions = [];
+            const minValue         = Math.min(...values);
+            const maxValue         = Math.max(...values);
+            const valueRange       = maxValue - minValue || 1;
+            
+            const colors           = [];
+            const sizes            = [];
+            const alphas           = [];
+            // 1. 定义分段颜色（可自定义）
+            const colorBlueDeep  = hexToRgb('c6e2ff');   // 低值起始：深蓝（自定义）
+            const colorBlueLight = hexToRgb('f0f8ff');  // 低值结束：浅蓝（指定）
+            const colorRedLight  = hexToRgb('ffc8a2');   // 高值起始：浅红（自定义）
+            const colorRedDeep   = hexToRgb('ff968a');    // 高值结束：橙红（指定）
+            
+            // 2. 定义分段阈值（可调整）
+            const lowEnd    = 0.4;    // 低值段结束点（0~0.4：蓝→浅蓝）
+            const highStart = 0.6; // 高值段起始点（0.6~1：浅红→橙红）
+            const midPoint  = 0.5;  // 中间透明点（0.4~0.6：透明）
 
-            values.forEach(value => {
-                // 颜色（映射激活强度）
-                const color = getActivationColor(strength);
-                colors.push(color.r, color.g, color.b);
-                // 大小（激活越强越大：0.5~3）
-                const size = 0.5 + strength * 2.5;
+            console.log(`Value Range: min=${minValue}, max=${maxValue}`);
+            for (let i = 0; i < positions.length; i++) {
+                const [x, y, z] = positions[i];
+                volume_positions.push(x, y, z);
+                const normalizedValue = (values[i] - minValue) / valueRange;
+                // 3. 分段颜色插值（核心）
+                let r, g, b;
+                if (normalizedValue <= lowEnd) {
+                    // 段1：0~0.4 → 深蓝 → 浅蓝
+                    const t = normalizedValue / lowEnd; // 映射到0~1
+                    r = colorBlueDeep.r + (colorBlueLight.r - colorBlueDeep.r) * t;
+                    g = colorBlueDeep.g + (colorBlueLight.g - colorBlueDeep.g) * t;
+                    b = colorBlueDeep.b + (colorBlueLight.b - colorBlueDeep.b) * t;
+                } else if (normalizedValue >= highStart) {
+                    // 段3：0.6~1 → 浅红 → 橙红
+                    const t = (normalizedValue - highStart) / (1 - highStart); // 映射到0~1
+                    r = colorRedLight.r + (colorRedDeep.r - colorRedLight.r) * t;
+                    g = colorRedLight.g + (colorRedDeep.g - colorRedLight.g) * t;
+                    b = colorRedLight.b + (colorRedDeep.b - colorRedLight.b) * t;
+                } else {
+                    // 段2：0.4~0.6 → 浅蓝→浅红过渡（中间透明，颜色过渡不明显）
+                    const t = (normalizedValue - lowEnd) / (highStart - lowEnd); // 0~1
+                    r = colorBlueLight.r + (colorRedLight.r - colorBlueLight.r) * t;
+                    g = colorBlueLight.g + (colorRedLight.g - colorBlueLight.g) * t;
+                    b = colorBlueLight.b + (colorRedLight.b - colorBlueLight.b) * t;
+                }
+                colors.push(r, g, b);
+
+                // 4. 透明度插值（两端高、中间透明，匹配颜色分段）
+                const maxOpacity = opacity;
+                let dynamicOpacity;
+                if (normalizedValue <= midPoint) {
+                    dynamicOpacity = maxOpacity * (1 - normalizedValue / midPoint);
+                } else {
+                    dynamicOpacity = maxOpacity * ((normalizedValue - midPoint) / (1 - midPoint));
+                }
+
+                alphas.push(dynamicOpacity);
+                const size = 0.5 + values[i] * 2.5 * pointSize;
                 sizes.push(size);
-                // 透明度（激活越强越不透明：0.2~1）
-                const alpha = 0.2 + strength * 0.8;
-                alphas.push(alpha);
-            });
+            }
 
             // 2. 创建粒子几何体
             const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(volume_positions, 3));
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
             geometry.setAttribute('alpha', new THREE.Float32BufferAttribute(alphas, 1));
@@ -2591,7 +2631,7 @@
             // 3. 自定义粒子材质（关键：实现大小/透明度/颜色的个性化）
             const material = new THREE.ShaderMaterial({
                 uniforms: {
-                    pointTexture: { value: new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png') }
+                    pointTexture: { value: new THREE.TextureLoader().load('assets/js/three/disc.png') }
                 },
                 vertexShader: `
                     attribute float size;
@@ -2628,7 +2668,6 @@
         }
 
 
-        // 颜色定义
         // ===================== 工具函数：十六进制颜色转RGB =====================
         function hexToRgb(hex) {
             hex = hex.replace(/^#/, '');
@@ -2651,7 +2690,16 @@
 
             maxOpacity = opacity
             
- 
+            // 1. 定义分段颜色（可自定义）
+            const colorBlueDeep = hexToRgb('c6e2ff');   // 低值起始：深蓝（自定义）
+            const colorBlueLight = hexToRgb('f0f8ff');  // 低值结束：浅蓝（指定）
+            const colorRedLight = hexToRgb('ffc8a2');   // 高值起始：浅红（自定义）
+            const colorRedDeep = hexToRgb('ff968a');    // 高值结束：橙红（指定）
+            
+            // 2. 定义分段阈值（可调整）
+            const lowEnd = 0.4;    // 低值段结束点（0~0.4：蓝→浅蓝）
+            const highStart = 0.6; // 高值段起始点（0.6~1：浅红→橙红）
+            const midPoint = 0.5;  // 中间透明点
 
 
             for (let i = 0; i < positions.length; i++) {
@@ -2753,9 +2801,10 @@
             const selectedSubject = e.target.value;
             // showSelectedFolder(selectedSubject);
             loadFileList(selectedSubject);
+            
+            // 如果需要实现多级浏览，可以在这里递归加载子文件夹
+            // loadSubjectList(selectedPath);
         });
-
-
     </script>
 </body>
 </html>
