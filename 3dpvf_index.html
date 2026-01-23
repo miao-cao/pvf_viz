@@ -883,7 +883,7 @@
             toggleFullscreenBtn.addEventListener('click', toggleFullscreen);
             
             // Export data button
-            exportDataBtn.addEventListener('click', exportVectorFieldData);
+            exportDataBtn.addEventListener('click', exportCanvasScreenshot);
         }
         
         // Handle window resize
@@ -1641,46 +1641,62 @@
                 Math.round(fps);
         }
         
-        // Export vector field data
-        function exportVectorFieldData() {
-            // Prepare data in a format suitable for export
-            const exportData = {
-                settings: settings,
-                vectors: vectorField.map(vector => {
-                    return {
-                        position: {
-                            x: vector.position.x,
-                            y: vector.position.y,
-                            z: vector.position.z
-                        },
-                        direction: {
-                            x: vector.direction.x,
-                            y: vector.direction.y,
-                            z: vector.direction.z
-                        },
-                        magnitude: vector.magnitude
-                    };
-                })
-            };
-            
-            // Create JSON blob
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            
-            // Create download link
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `vector-field-${new Date().toISOString().slice(0, 10)}.json`;
-            document.body.appendChild(a);
-            a.click();
-            
-            // Clean up
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 0);
+    /**
+     * 导出Canvas截图
+     * @param {string} fileName 自定义文件名，默认包含时间戳
+     * @param {boolean} useHighRes 是否导出高清截图（解决Canvas模糊问题）
+     */
+    function exportCanvasScreenshot(fileName = `pvf-visualization-${Date.now()}`, useHighRes = true) {
+        const canvas = document.getElementById('vector-field-canvas');
+        if (!canvas) {
+            showError('未找到可视化Canvas元素');
+            return;
         }
-        
+
+        try {
+            let imageURL;
+            if (useHighRes) {
+                // 方案1：高清截图（解决Three.js Canvas渲染模糊问题）
+                // const renderer = brainSurfaces.renderer || window.pvfRenderer; // 替换为你实际的Three.js渲染器实例
+                if (window.pvf_renderer) {
+                    // 从Three.js渲染器直接获取高清截图
+                    imageURL = window.pvf_renderer.domElement.toDataURL('image/png', 1.0);
+                } else {
+                    // 降级方案：直接从Canvas获取
+                    imageURL = canvas.toDataURL('image/png', 1.0);
+                }
+            } else {
+                // 方案2：基础截图
+                imageURL = canvas.toDataURL('image/png');
+            }
+
+            // 创建下载链接并触发下载
+            const link = document.createElement('a');
+            link.href = imageURL;
+            link.download = `${fileName}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // 释放内存（可选）
+            URL.revokeObjectURL(imageURL);
+            console.log('截图导出成功');
+        } catch (error) {
+            showError(`截图导出失败：${error.message}`);
+        }
+    }
+
+    // 复用页面现有错误提示逻辑
+    function showError(message) {
+        errorMessage.classList.remove('hidden');
+        errorDetails.textContent = message;
+        // 3秒后自动隐藏错误提示
+        setTimeout(() => {
+            errorMessage.classList.add('hidden');
+        }, 3000);
+    }
+
+
         // Animation loop
         function animate(timestamp) {
             // Calculate FPS
@@ -2209,6 +2225,7 @@
             
             // Render scene
             renderer.render(scene, camera);
+            window.pvf_renderer = renderer;
             
             // showError("PVF vector field loaded successfully");
             // Hide loading indicator
