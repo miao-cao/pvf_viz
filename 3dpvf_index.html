@@ -254,12 +254,11 @@
                         <div>
                             <label class="block text-sm font-medium text-light/80 mb-1">Color Scheme</label>
                             <select id="color-scheme" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="speed">Speed Magnitude</option>
                                 <option value="direction">Direction</option>
                                 <option value="temperature">Temperature Map</option>
-                                <option value="speed">Speed Magnitude</option>
-                                <option value="rainbow">Rainbow</option>
                                 <option value="grayscale">Grayscale</option>
-                                
+                                <option value="rainbow">Rainbow</option>
                             </select>
                         </div>
                         
@@ -605,7 +604,7 @@
         
 
         let volume_size             = 50;                   // where brain, vectors and streamlines reside
-        let streamlineWidth         = 0.1;                  // 0.025 streamline tube width
+        let streamlineWidth         = 0.15;                  // 0.025 streamline tube width
         let streamlinesGroup        = new THREE.Group();
         let singularitiesGroup      = new THREE.Group();    // Group for singularities
         let present_PVF             = false;
@@ -680,7 +679,7 @@
             resolution       : 20,
             vectorScale      : 2,
             showGrid         : true,
-            colorScheme      : 'direction',
+            colorScheme      : 'speed',
             vectorDisplay    : 'arrows',
             showStreamlines  : true,
             animationSpeed   : 1,
@@ -1464,6 +1463,14 @@
 
             if (present_PVF == true){
                 const scale = settings.vectorScale;
+                // 遍历向量，获取幅值极值（需适配你的向量数据结构）
+                let minMagnitude = Infinity;
+                let maxMagnitude = -Infinity;
+                vectorField.forEach(vector => {
+                    const magnitude = vector.magnitude; // 替换为你实际的幅值属性（如 vector.length()）
+                    minMagnitude = Math.min(minMagnitude, magnitude);
+                    maxMagnitude = Math.max(maxMagnitude, magnitude);
+                });
                 
                 vectorField.forEach((vector, index) => {
                     const vectorObject = vectorObjects[index];
@@ -1471,10 +1478,10 @@
                     // Update color
                     if (vectorObject.material) {
                         if (vectorObject.material.color) {
-                            vectorObject.material.color.set(getVectorColor(vector));
+                            vectorObject.material.color.set(getVectorColor(vector, minMagnitude, maxMagnitude));
                         }
                     } else if (vectorObject.setColor) {
-                        vectorObject.setColor(getVectorColor(vector));
+                        vectorObject.setColor(getVectorColor(vector, minMagnitude, maxMagnitude));
                     }
                     
                     // Update scale and position based on display type
@@ -1522,14 +1529,14 @@
             // 解析目标颜色的RGB值（转成0~1范围，Three.js Color要求）
             //(138, 35, 135), rgb(233, 64, 87), rgb(242, 113, 33)
             // 浅黄 #F3E5AB → RGB(243, 229, 171) → 转0~1：(243/255, 229/255, 171/255)
-            const lightR = 242 / 255;
-            const lightG = 113 / 255;
-            const lightB = 33 / 255;
+            const lightR = 255 / 255;
+            const lightG = 255 / 255;
+            const lightB = 231 / 255; // 255, 253, 231
             
             // 深黄 #FEF250 → RGB(254, 242, 80) → 转0~1：(254/255, 242/255, 80/255)
-            const darkR = 138 / 255;
-            const darkG = 35 / 255;
-            const darkB = 135 / 255;
+            const darkR = 255 / 255;
+            const darkG = 235 / 255;
+            const darkB =  59 / 255; // 255, 235, 59
 
             // 按归一化幅值插值计算当前颜色
             const r = lightR + (darkR - lightR) * normalizedMag;
@@ -1679,7 +1686,7 @@
         }
         
         /**
-         * 导出高清三维渲染图
+         * Export high-res 3D screenshots
          * @param {number} targetWidth  期望宽度（默认 3840）
          * @param {number} targetHeight 期望高度（默认 2160）
          */
@@ -1760,7 +1767,7 @@
         });
         
 
-        // streamlines
+        // ===================== visualising streamlines =====================
         function removeStreamlines() {
             renderer.clear();
             if (!streamlinesGroup) return;
@@ -1815,9 +1822,9 @@
                 // const startColor = new THREE.Color(0xff0000); // 红色
                 // const endColor = new THREE.Color(0x0000ff);   // 蓝色
 
-                const startColor = new THREE.Color(0xff0000); //THREE.Color(0xEC2F4B);    // 红
-                const midColor = new THREE.Color(0xffffff);   // 白
-                const endColor = new THREE.Color(0x0000ff);   //THREE.Color(0x009FFF);   // 蓝
+                const startColor = new THREE.Color(0xFF3131);   // THREE.Color(0xff0000);   // THREE.Color(0xEC2F4B);   // ligtht red
+                const midColor   = new THREE.Color(0xffffff);   // white
+                const endColor   = new THREE.Color(0x4169E1);   // THREE.Color(0x0000ff);   // THREE.Color(0x009FFF);   // light blue
 
                 num_streamlines = PVF_streamlines.length;
                 showError(`Number of streamlines: ${num_streamlines}`)
@@ -1841,11 +1848,11 @@
                     
                     // 创建管状几何体
                     const geometry = new THREE.TubeGeometry(
-                        curve, // curve,
-                        80,  // 沿曲线的分段数
-                        streamlineWidth,  // 管半径
-                        8,   // 横截面分段数
-                        false  // 不闭合
+                                                    curve, // curve,
+                                                    80,  // 沿曲线的分段数
+                                                    streamlineWidth,  // 管半径
+                                                    8,   // 横截面分段数
+                                                    false  // 不闭合
                     );
 
 
@@ -1904,7 +1911,7 @@
         };
 
 
-        // 加载subject列表
+        // ===================== load subject list =====================
         async function loadSubjectList(path = '') {
             try {
                 // 显示加载状态
@@ -1955,7 +1962,7 @@
         }
 
 
-        // 加载文件列表
+        // ===================== load file list =====================
         async function loadFileList(subject) {
             // 这里可以实现加载选中文件夹内文件的逻辑
             console.log(`Load files for subject: ${subject}`);
@@ -2166,7 +2173,7 @@
             
         }
 
-
+        // ===================== visualising spatiotemporal modes =====================
         async function loadModeFields(){
             // 这里可以实现加载选中文件夹内文件的逻辑
             loadingIndicator.classList.remove('hidden', 'opacity-0');
@@ -2202,7 +2209,6 @@
 
             loadingIndicator.classList.add('hidden', 'opacity-0');
         }
-
 
         function createModeVectorFields(){
             removeStreamlines();
@@ -2255,7 +2261,6 @@
             // Hide loading indicator
             loadingIndicator.classList.add('opacity-0', 'hidden');
         }
-
 
         function showTemporalModes(){
             console.log(PVF_temporal_modes)
@@ -2367,6 +2372,8 @@
                 options: chartOptions,
             });
         }
+
+        // ===================== visualising sensor signals =====================
 
         function showSensorSignals(){
             // Chart.register(ChartAnnotation);
@@ -2486,6 +2493,7 @@
             sensor_signal_chart.update(); // 刷新图表
         }
 
+        // ===================== visualising source estimate =====================
         async function loadVolume(){
             document.getElementById('show-source').checked = true;
             present_source_estimate = true;
@@ -2574,6 +2582,26 @@
             return points;
         }
 
+        function clearVolume() {
+            if (!volumeObjects) return;
+
+            // 1. 从场景中移除对象
+            scene.remove(volumeObjects);
+
+            // 2. 释放几何体内存（关键：避免内存泄漏）
+            if (volumeObjects.geometry) {
+                volumeObjects.geometry.dispose();
+            }
+
+            // 3. 释放材质内存
+            if (volumeObjects.material) {
+                volumeObjects.material.dispose();
+            }
+
+            // 4. 清空引用（帮助JS垃圾回收）
+            volumeObjects = null;
+            renderer.clear();
+        }
 
         // ===================== 2. 核心工具函数 =====================
         /**
@@ -2790,27 +2818,6 @@
                 sphereGroup.add(sphere);
             }
             return sphereGroup;
-        }
-
-        function clearVolume() {
-            if (!volumeObjects) return;
-
-            // 1. 从场景中移除对象
-            scene.remove(volumeObjects);
-
-            // 2. 释放几何体内存（关键：避免内存泄漏）
-            if (volumeObjects.geometry) {
-                volumeObjects.geometry.dispose();
-            }
-
-            // 3. 释放材质内存
-            if (volumeObjects.material) {
-                volumeObjects.material.dispose();
-            }
-
-            // 4. 清空引用（帮助JS垃圾回收）
-            volumeObjects = null;
-            renderer.clear();
         }
 
         // 显示错误信息
