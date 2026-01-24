@@ -1387,7 +1387,16 @@
             if (present_PVF == true){
                 // Create new vector objects based on settings
                 const scale = settings.vectorScale;
+                let minMagnitude = Infinity;
+                let maxMagnitude = -Infinity;
                 
+                // 遍历向量，获取幅值极值（需适配你的向量数据结构）
+                vectorField.forEach(vector => {
+                    const magnitude = vector.magnitude; // 替换为你实际的幅值属性（如 vector.length()）
+                    minMagnitude = Math.min(minMagnitude, magnitude);
+                    maxMagnitude = Math.max(maxMagnitude, magnitude);
+                });
+
                 vectorField.forEach(vector => {
                     let vectorObject;
                     
@@ -1398,7 +1407,7 @@
                                 vector.direction.clone().normalize(), // vector.direction.clone().multiplyScalar(scale),
                                 vector.position,
                                 vector.magnitude * scale * 1.5,
-                                getVectorColor(vector)
+                                getVectorColor(vector, minMagnitude, maxMagnitude),
                             );
                             vectorObject = arrowHelper;
                             vectorObject.setLength(1.2 * scale * vector.magnitude, 0.4 * scale, 0.2 * scale);
@@ -1411,7 +1420,7 @@
                                 vector.position.clone().add(vector.direction.clone().multiplyScalar(1.5 * scale))
                             ]);
                             const lineMaterial = new THREE.LineBasicMaterial({
-                                color: getVectorColor(vector),
+                                color: getVectorColor(vector, minMagnitude, maxMagnitude),
                                 linewidth: 2
                             });
                             vectorObject = new THREE.Line(lineGeometry, lineMaterial);
@@ -1423,7 +1432,7 @@
                                 0.05 * scale, 0.15 * scale, 1.5 * scale, 12
                             );
                             const tubeMaterial = new THREE.MeshStandardMaterial({
-                                color: getVectorColor(vector),
+                                color: getVectorColor(vector, minMagnitude, maxMagnitude),
                                 roughness: 0.8,
                                 metalness: 0.2
                             });
@@ -1509,14 +1518,43 @@
             vectorObjects = [];
         }
         
+        function getGradientColor(normalizedMag) {
+            // 解析目标颜色的RGB值（转成0~1范围，Three.js Color要求）
+            //(138, 35, 135), rgb(233, 64, 87), rgb(242, 113, 33)
+            // 浅黄 #F3E5AB → RGB(243, 229, 171) → 转0~1：(243/255, 229/255, 171/255)
+            const lightR = 242 / 255;
+            const lightG = 113 / 255;
+            const lightB = 33 / 255;
+            
+            // 深黄 #FEF250 → RGB(254, 242, 80) → 转0~1：(254/255, 242/255, 80/255)
+            const darkR = 138 / 255;
+            const darkG = 35 / 255;
+            const darkB = 135 / 255;
+
+            // 按归一化幅值插值计算当前颜色
+            const r = lightR + (darkR - lightR) * normalizedMag;
+            const g = lightG + (darkG - lightG) * normalizedMag;
+            const b = lightB + (darkB - lightB) * normalizedMag;
+
+            return new THREE.Color(r, g, b);
+        }
+        // vanilla #F3E5AB, lemon yellow #FEF250
         // Get color for a vector based on settings
-        function getVectorColor(vector) {
+        function normalise(value, min, max) {
+            if (max === min) return 0.5; // 避免除以0
+            return Math.max(0, Math.min(1, (value - min) / (max - min))); // 限制在0~1
+        }
+
+        function getVectorColor(vector, minMagnitude, maxMagnitude) {
             const magnitude = vector.magnitude;
+            
             
             switch (settings.colorScheme) {
                 case 'speed':
                     // Color based on magnitude (speed)
-                    return new THREE.Color().setHSL(0.4 - (magnitude / 5), 1, 0.5);
+                    const normMag = normalise(magnitude, minMagnitude, maxMagnitude);
+                    
+                    return getGradientColor(normMag); //return new THREE.Color().setHSL(0.4 - (normMag / 5), 1, 0.5);
                     
                 case 'direction':
                     // Color based on direction
@@ -1777,9 +1815,9 @@
                 // const startColor = new THREE.Color(0xff0000); // 红色
                 // const endColor = new THREE.Color(0x0000ff);   // 蓝色
 
-                const startColor = new THREE.Color(0xff0000);    // 红
-                const midColor = new THREE.Color(0xffffff);  // 白
-                const endColor = new THREE.Color(0x0000ff);   // 蓝
+                const startColor = new THREE.Color(0xff0000); //THREE.Color(0xEC2F4B);    // 红
+                const midColor = new THREE.Color(0xffffff);   // 白
+                const endColor = new THREE.Color(0x0000ff);   //THREE.Color(0x009FFF);   // 蓝
 
                 num_streamlines = PVF_streamlines.length;
                 showError(`Number of streamlines: ${num_streamlines}`)
