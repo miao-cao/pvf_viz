@@ -1338,7 +1338,7 @@
                     // });
                     console.log("Loading left hemisphere surface from:", data.lh_surface);
                     const meshOrObj = await brainLoader.loadSurfObj(data.lh_surface, {
-                        color: 0x222222,
+                        color: 0xF4F6F7, //#F4F6F7
                         opacity: 0.25,
                         wireframe: false,
                         transparent: true,
@@ -1363,7 +1363,7 @@
                     //     wireframe: false
                     // });
                     const meshOrObj = await brainLoader.loadSurfObj(data.rh_surface, {
-                        color: 0x222222,
+                        color: 0xF4F6F7,
                         opacity: 0.25,
                         wireframe: false,
                         transparent: true,
@@ -1822,6 +1822,7 @@
             camera.updateProjectionMatrix();
 
             /* ---------- 4. 渲染一帧高清画面 ---------- */
+            scene.background = new THREE.Color(0xFFFFFF); // THREE.Color(0x1E293B);0x03080b
             renderer.render(scene, camera);
 
             /* ---------- 5. 读取像素并生成 Blob ---------- */
@@ -1837,6 +1838,7 @@
             }, 'image/png');
 
             /* ---------- 6. 恢复现场 ---------- */
+            scene.background = new THREE.Color(0x03080b); // THREE.Color(0x1E293B);0x03080b
             // renderer.setSize(prevWidth, prevHeight);
             camera.aspect = prevCamera;
             camera.updateProjectionMatrix();
