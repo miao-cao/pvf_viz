@@ -495,6 +495,7 @@
                     </div>
                 </div>
             </div>
+
             <!-- Time control module -->
             <div id="time-control-module" class="absolute absolute bottom-0.5 left-1/2 -translate-x-1/2 w-[80rem] rounded-xl p-4 border border-white/10 mb-4">
                 <h2 class="text-lg font-medium mb-3 flex items-center gap-2">
@@ -544,8 +545,11 @@
             </div>
 
             <!-- Temporal mode plot canvas -->
-            <div id="time-mode-plot" class="absolute absolute top-3/4 left-1/2 -translate-x-1/2 w-[80rem] h-[30rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
+            <div id="time-mode-plot" class="absolute top-3/4 left-1/2 -translate-x-1/2 w-[80rem] h-[30rem] rounded-xl p-4 border border-white/10 mb-4", style="visibility: hidden;">
             </div>
+
+            <div id="streamline-colorbar-container" class="absolute bottom-[250px] right-1/3"  style="visibility: hidden;"></div>
+            <div id="vector-colorbar-container" class="absolute bottom-[250px] right-1/4"  style="visibility: hidden;"></div>
         </div>
     </main>
 
@@ -628,6 +632,14 @@
         t_min             = 0
         t_max             = 99
         current_timepoint = 0
+
+        let streamline_start_color = 0xFF3131;
+        let streamline_end_color   = 0x4169E1; // Red
+        let streamline_start_color_string = '#FF3131';
+        let streamline_end_color_string   = '#4169E1';
+
+        let vectorField_start_color= '#FFFFE7';
+        let vectorField_end_color  = '#FFEB3B';
 
         // Three.js Scene Variables
         let scene, camera, renderer, controls;
@@ -1039,7 +1051,7 @@
         // load PVF vector field
         function loadPVFVectorField() {
             removeVectorObjects();
-            removeStreamlines();
+            // removeStreamlines();
 
             const container = document.getElementById('time-mode-plot');
             container.style.visibility = "hidden"
@@ -1102,7 +1114,7 @@
 
             const showVectorsCheckbox = document.getElementById("show-vectors");
             showVectorsCheckbox.checked = true;
-            
+            createVectorColorbar();
             
         }
 
@@ -1511,6 +1523,106 @@
 
         }
         
+        function createVectorColorbar(options = {}) {
+            // 默认配置（红-白-蓝）
+            const config = {
+                containerId: 'vector-colorbar-container',
+                width: 20,
+                height: 200,
+                colorStops: [ // 三色渐变节点
+                    { percent: 0, color: vectorField_start_color },   
+                    { percent: 50, color: '#FFFFFF' },  // 50% 白
+                    { percent: 100, color: vectorField_end_color } 
+                ],
+                labels: ['0%', '50%', '100%'], // 刻度标签
+                title: 'Vector Magnitude', // 标题
+            };
+            Object.assign(config, options);
+
+            // 创建/获取容器
+            let container = document.getElementById(config.containerId);
+            container.style.visibility = "visible";
+            if (!container) {
+                container = document.createElement('div');
+                container.id = config.containerId;
+                // 固定位置：右下角，确保不遮挡场景
+                container.style.position = 'fixed';
+                container.style.right = '20px';
+                container.style.bottom = '20px';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.gap = '8px';
+                container.style.zIndex = '9999'; // 提高层级，确保在最上层
+                container.style.padding = '8px';
+                container.style.backgroundColor = '#f5f5f5'; // 浅背景，区分页面
+                container.style.borderRadius = '6px';
+                document.body.appendChild(container);
+            }
+            container.innerHTML = '';
+            container.style.display = 'flex';
+            container.style.flexDirection = 'row';
+
+            // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
+            const colorGradientStyleBackground = `linear-gradient(to bottom, ${vectorField_start_color} 0%,  ${vectorField_end_color} 100%)`;
+            console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
+            const colorbarGradient = document.createElement('div');
+            colorbarGradient.style.position = 'flex';
+            colorbarGradient.style.left = '0px';
+            colorbarGradient.style.width = `${config.width}px`;
+            colorbarGradient.style.height = `${config.height}px`;
+            colorbarGradient.style.border = '1px solid #666'; // 深色边框，更清晰
+            colorbarGradient.style.borderRadius = '4px';
+            // 修复：单行写渐变规则，避免解析错误；明确渐变节点的百分比
+            colorbarGradient.style.background = colorGradientStyleBackground; //'linear-gradient(to bottom, #FF3131 0%, #FFFFFF 50%, #0000FF 100%)';
+            // 强制开启背景渲染
+            colorbarGradient.style.backgroundSize = '100% 100%';
+            colorbarGradient.style.backgroundRepeat = 'no-repeat';
+            container.appendChild(colorbarGradient);
+
+            // 步骤2：创建刻度和标签容器
+            const labelsContainer = document.createElement('div');
+            labelsContainer.style.display = 'flex';
+            labelsContainer.style.flexDirection = 'column';
+            labelsContainer.style.left = '80px';
+            labelsContainer.style.justifyContent = 'space-between';
+            labelsContainer.style.height = `${config.height}px`;
+            labelsContainer.style.fontSize = '24px';
+            labelsContainer.style.color = '#FFFFFF';
+            labelsContainer.style.fontFamily = 'Arial, sans-serif';
+
+            // 100%（蓝）标签（顶部）
+            const maxLabel = document.createElement('div');
+            maxLabel.textContent = 'Min';
+            maxLabel.style.marginTop = '0px'; // 微调位置，对齐渐变顶部
+            labelsContainer.appendChild(maxLabel);
+
+            // // 50%（白）标签（中间）
+            // const midLabel = document.createElement('div');
+            // midLabel.textContent = 'Middle';
+            // midLabel.style.textAlign = 'center';
+            // labelsContainer.appendChild(midLabel);
+
+            // 标题
+            const titleLabel = document.createElement('div');
+            titleLabel.textContent = config.title;
+            titleLabel.style.textAlign = 'center';
+            titleLabel.style.fontWeight = 'bold';
+            titleLabel.style.marginTop = '150px';
+            titleLabel.style.margin = '5px 0';
+            labelsContainer.appendChild(titleLabel);
+
+            // 0%（红）标签（底部）
+            const minLabel = document.createElement('div');
+            minLabel.textContent = 'Max';
+            minLabel.style.marginBottom = '0px'; // 微调位置，对齐渐变底部
+            labelsContainer.appendChild(minLabel);
+
+            container.appendChild(labelsContainer);
+
+            console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
+            return container;
+        }
+
         // Remove vector objects from the scene
         function removeVectorObjects() {
             vectorObjects.forEach(object => {
@@ -1769,6 +1881,8 @@
 
         // ===================== visualising streamlines =====================
         function removeStreamlines() {
+            let container = document.getElementById('streamline-colorbar-container');
+            container.style.visibility = "hidden";
             renderer.clear();
             if (!streamlinesGroup) return;
             
@@ -1822,9 +1936,9 @@
                 // const startColor = new THREE.Color(0xff0000); // 红色
                 // const endColor = new THREE.Color(0x0000ff);   // 蓝色
 
-                const startColor = new THREE.Color(0xFF3131);   // THREE.Color(0xff0000);   // THREE.Color(0xEC2F4B);   // ligtht red
+                const startColor = new THREE.Color(streamline_start_color);   // THREE.Color(0xff0000);   // THREE.Color(0xEC2F4B);   // ligtht red
                 const midColor   = new THREE.Color(0xffffff);   // white
-                const endColor   = new THREE.Color(0x4169E1);   // THREE.Color(0x0000ff);   // THREE.Color(0x009FFF);   // light blue
+                const endColor   = new THREE.Color(streamline_end_color);   // THREE.Color(0x0000ff);   // THREE.Color(0x009FFF);   // light blue
 
                 num_streamlines = PVF_streamlines.length;
                 showError(`Number of streamlines: ${num_streamlines}`)
@@ -1905,10 +2019,112 @@
                     camera.updateProjectionMatrix();
                     renderer.setSize(window.innerWidth, window.innerHeight);
                 });
+                createStreamlineColorbar();
             }
             
             
         };
+
+
+        function createStreamlineColorbar(options = {}) {
+            // 默认配置（红-白-蓝）
+            const config = {
+                containerId: 'streamline-colorbar-container',
+                width: 20,
+                height: 200,
+                colorStops: [ // 三色渐变节点
+                    { percent: 0, color: streamline_start_color },   // 0% 红
+                    { percent: 50, color: '#FFFFFF' },  // 50% 白
+                    { percent: 100, color: streamline_end_color }  // 100% 蓝
+                ],
+                labels: ['0%', '50%', '100%'], // 刻度标签
+                title: 'Streamlines'
+            };
+            Object.assign(config, options);
+
+            // 创建/获取容器
+            let container = document.getElementById(config.containerId);
+            container.style.visibility = "visible";
+            if (!container) {
+                container = document.createElement('div');
+                container.id = config.containerId;
+                // 固定位置：右下角，确保不遮挡场景
+                container.style.position = 'fixed';
+                container.style.right = '20px';
+                container.style.bottom = '20px';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.gap = '8px';
+                container.style.zIndex = '9999'; // 提高层级，确保在最上层
+                container.style.padding = '8px';
+                container.style.backgroundColor = '#f5f5f5'; // 浅背景，区分页面
+                container.style.borderRadius = '6px';
+                document.body.appendChild(container);
+            }
+            container.innerHTML = '';
+            container.style.display = 'flex';
+            container.style.flexDirection = 'row';
+
+            // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
+            const colorGradientStyleBackground = `linear-gradient(to bottom, ${streamline_start_color_string} 0%, #FFFFFF 50%, ${String(streamline_end_color_string)} 100%)`;
+            console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
+            const colorbarGradient = document.createElement('div');
+            colorbarGradient.style.position = 'flex';
+            colorbarGradient.style.left = '0px';
+            colorbarGradient.style.width = `${config.width}px`;
+            colorbarGradient.style.height = `${config.height}px`;
+            colorbarGradient.style.border = '1px solid #666'; // 深色边框，更清晰
+            colorbarGradient.style.borderRadius = '4px';
+            // 修复：单行写渐变规则，避免解析错误；明确渐变节点的百分比
+            colorbarGradient.style.background = colorGradientStyleBackground; //'linear-gradient(to bottom, #FF3131 0%, #FFFFFF 50%, #0000FF 100%)';
+            // 强制开启背景渲染
+            colorbarGradient.style.backgroundSize = '100% 100%';
+            colorbarGradient.style.backgroundRepeat = 'no-repeat';
+            container.appendChild(colorbarGradient);
+
+            // 步骤2：创建刻度和标签容器
+            const labelsContainer = document.createElement('div');
+            labelsContainer.style.display = 'flex';
+            labelsContainer.style.flexDirection = 'column';
+            labelsContainer.style.left = '80px';
+            labelsContainer.style.justifyContent = 'space-between';
+            labelsContainer.style.height = `${config.height}px`;
+            labelsContainer.style.fontSize = '24px';
+            labelsContainer.style.color = '#FFFFFF';
+            labelsContainer.style.fontFamily = 'Arial, sans-serif';
+
+            // 100%（蓝）标签（顶部）
+            const maxLabel = document.createElement('div');
+            maxLabel.textContent = 'Start';
+            maxLabel.style.marginTop = '0px'; // 微调位置，对齐渐变顶部
+            labelsContainer.appendChild(maxLabel);
+
+            // // 50%（白）标签（中间）
+            // const midLabel = document.createElement('div');
+            // midLabel.textContent = 'Middle';
+            // midLabel.style.textAlign = 'center';
+            // labelsContainer.appendChild(midLabel);
+
+            // 标题
+            const titleLabel = document.createElement('div');
+            titleLabel.textContent = config.title;
+            titleLabel.style.textAlign = 'center';
+            titleLabel.style.fontWeight = 'bold';
+            titleLabel.style.marginTop = '150px';
+            titleLabel.style.margin = '5px 0';
+            labelsContainer.appendChild(titleLabel);
+
+            // 0%（红）标签（底部）
+            const minLabel = document.createElement('div');
+            minLabel.textContent = 'End';
+            minLabel.style.marginBottom = '0px'; // 微调位置，对齐渐变底部
+            labelsContainer.appendChild(minLabel);
+
+            container.appendChild(labelsContainer);
+
+            console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
+            return container;
+        }
 
 
         // ===================== load subject list =====================
@@ -2094,6 +2310,7 @@
                 timeStat.innerHTML = times_currenttime.toFixed(2);
             }
         };
+
 
 
         async function loadFile() {
