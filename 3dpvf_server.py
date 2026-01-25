@@ -105,8 +105,8 @@ async def load_subjects_files(
                             session         : str             = Query(None),
                             file            : str             = Query(None),):
     load_subject_json_files(subject_name=subject, session=session, file_name=file)
-    data = resp_pvf_json(subject_name=subject, file_name=file, timepoint=0)
-    task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject, file_name=file))
+    data = resp_pvf_json(subject_name=subject, session=session, file_name=file, timepoint=0)
+    task = asyncio.create_task(load_streamlines_all_time_windows(subject_name=subject, session=session, file_name=file))
     return data
 
 @app.get("/api/load-modes")
@@ -587,8 +587,8 @@ def resp_pvf_json(subject_name: str, session: str, file_name: str, timepoint: in
 
     file_pvf_data = subjects_loaded_pvf_data[subject_name][session]['meta_files'][file_name]
     timepoint_int = int(timepoint)
-    pvf_data      = process_pvf_time_window(subject_name=subject_name, file_name=file_name, pvf_time_window_id=timepoint_int)
-    streamlines   = process_streamlines_time_window(subject_name=subject_name, file_name=file_name, pvf_time_window_id=timepoint_int)
+    pvf_data      = process_pvf_time_window(subject_name=subject_name, session=session, file_name=file_name, pvf_time_window_id=timepoint_int)
+    streamlines   = process_streamlines_time_window(subject_name=subject_name, session=session, file_name=file_name, pvf_time_window_id=timepoint_int)
 
     return {
         "subject_ID"         : file_pvf_data["subject_ID"],
