@@ -154,6 +154,7 @@
                         </div>
                     </div>
 
+                    <!-- subject folder Button -->
                     <div class="mb-5">
                         <div class="mb-4 gap-2">
                             <label class="block text-sm font-medium text-light/80 mb-3">Subject List</label>
@@ -166,6 +167,16 @@
                                 <i class="fas fa-list"></i>
                                 <span>Load Subjects</span>
                             </button>
+                        </div>
+                    </div>
+                    
+                    <!-- session folder Button -->
+                    <div class="mb-5">
+                        <div class="mb-4 gap-2">
+                            <label class="block text-sm font-medium text-light/80 mb-3">Session List</label>
+                            <select id="session-select" class="w-full bg-dark/50 border border-white/10 rounded-lg px-3 py-2 text-light focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">Loading sessions...</option>
+                            </select>
                         </div>
                     </div>
 
@@ -573,6 +584,7 @@
         
         // DOM elements for File Panel
         const folderSelect       = document.getElementById('subject-select');
+        const sessionSelect      = document.getElementById('session-select');
         const fileSelect         = document.getElementById('file-select');
         const seFileSelect       = document.getElementById('se-file-select');
         const modeSelect         = document.getElementById('mode-select');
@@ -1040,6 +1052,19 @@
                 }
                                
             });
+
+            // 监听下拉框变化
+            folderSelect.addEventListener('click', (e) => {
+                const selectedSubject = e.target.value;
+                // loadFileList(selectedSubject);
+                loadSessionList(selectedSubject);
+            });
+
+            sessionSelect.addEventListener('click', (e) => {
+                const selectedSubject = folderSelect.value;
+                const selectedSession = e.target.value;
+                loadFileList(selectedSubject, selectedSession);
+            });
                         
             // Play/pause animation
             // document.getElementById('play-pause').addEventListener('click', toggleAnimation);
@@ -1128,8 +1153,9 @@
         async function updatePVFStreamlines() {
             // loadingIndicator.classList.remove('hidden', 'opacity-0');
             subject = folderSelect.value;
+            session = sessionSelect.value;
             file = fileSelect.value;
-            const response = await fetch(`http://${server_ip}:${server_port}/api/update-PVF-streamlines?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${current_timepoint}`);
+            const response = await fetch(`http://${server_ip}:${server_port}/api/update-PVF-streamlines?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}&timepoint=${current_timepoint}`);
                 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
@@ -1197,10 +1223,12 @@
             try {
                 // 显示加载指示器
                 loadingIndicator.classList.remove('hidden', 'opacity-0');
-                file = seFileSelect.value;
+                const subject = folderSelect.value;
+                const session = sessionSelect.value;
+                const file    = seFileSelect.value;
                 
                 // 调用API获取表面文件路径
-                const response = await fetch(`http://${server_ip}:${server_port}/api/load-source-estimate?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/load-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to get brain surfaces (${response.status})`);
@@ -1209,7 +1237,7 @@
                 const data = await response.json();
                 
                 PVF_sensor_signals = data.sensor_signals;
-                showError(`Successfully loaded sensor signals for ${subject}, file ${file}`);
+                showError(`Successfully loaded sensor signals for ${subject}, session ${session},file ${file}`);
                 loadingIndicator.classList.add('hidden', 'opacity-0');
                 
             } catch (error) {
@@ -1297,6 +1325,7 @@
             try {
                 // 显示加载指示器
                 loadingIndicator.classList.remove('hidden', 'opacity-0');
+                const subject = folderSelect.value;
                 
                 // 调用API获取表面文件路径
                 const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-surfaces?subject=${encodeURIComponent(subject)}`);
@@ -2139,7 +2168,7 @@
 
 
         // ===================== load subject list =====================
-        async function loadSubjectList(path = '') {
+        async function loadSubjectList() {
             try {
                 // 显示加载状态
                 folderSelect.innerHTML = '<option value="">Loading subject names...</option>';
@@ -2188,20 +2217,73 @@
             }
         }
 
+        // ===================== load session list =====================
+        async function loadSessionList(subject) {
+            try {
+                // 显示加载状态
+                sessionSelect.innerHTML = '<option value="">Loading sessions...</option>';
+                hideError();
+                const subject = folderSelect.value;
+                
+                // 调用API获取文件夹列表
+                const response = await fetch(`http://${server_ip}:${server_port}/api/list-sessions?subject=${encodeURIComponent(subject)}`);
+                
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    throw new Error(errorData?.error || `Failed to load sesions (${response.status})`);
+                }
+                
+                const data = await response.json();
 
-        // ===================== load file list =====================
-        async function loadFileList(subject) {
+                sessionSelect.innerHTML = '';
+
+                count_opt = 0;
+                for (const key in data) {
+                    // console.log(key, data[key]);
+                    const option = document.createElement('option');
+                    option.value = data[key];
+                    option.textContent = data[key];
+                    if (count_opt == 0){
+                        option.selected = true;
+                    }
+                    count_opt = count_opt + 1;
+                    sessionSelect.appendChild(option);
+                }
+
+                
+                // 如果没有文件夹
+                if (Object.keys(data).length === 0) {
+                    const noFolderOption = document.createElement('option');
+                    noFolderOption.value = '';
+                    noFolderOption.textContent = 'No session folder found';
+                    noFolderOption.disabled = true;
+                    sessionSelect.appendChild(noFolderOption);
+                }
+                
+            } catch (error) {
+                console.error('Error loading sessions :', error);
+                showError(error.message);
+                sessionSelect.innerHTML = '<option value="">Failed to load sessions</option>';
+            }
+        }
+
+        // ===================== load metadata json file and source estimate list =====================
+        async function loadFileList(subject, session) {
             // 这里可以实现加载选中文件夹内文件的逻辑
             console.log(`Load files for subject: ${subject}`);
             try {
                 // 显示加载状态
                 fileSelect.innerHTML = '<option value="">Loading Files...</option>';
                 hideError();
+
+                const subject = folderSelect.value;
+                const session = sessionSelect.value;
                 
                 // 调用API获取文件夹列表
-                const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects-files?subject=${encodeURIComponent(subject)}`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/list-subjects-files?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}`);
 
-                const response_se = await fetch(`http://${server_ip}:${server_port}/api/list-subject-source-estimate?subject=${encodeURIComponent(subject)}`);
+                const response_se = await fetch(`http://${server_ip}:${server_port}/api/list-subject-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}`);
                 
                 
                 if (!response.ok) {
@@ -2279,50 +2361,7 @@
             }
         }
 
-
-        // previous timepoint
-        async function prevTimepoint() {
-            if (current_timepoint > t_min){
-                current_timepoint -= 1;
-                timeSlider.value = current_timepoint;
-                const times_currenttime = PVF_times[current_timepoint];
-                if (present_PVF == true || present_streamlines == true){
-                    updatePVFStreamlines();
-                    updateVerticalLine();
-                }
-                if (present_source_estimate == true){
-                    loadVolume();
-                    updateVerticalLine();
-                }
-                
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-                timeStat.innerHTML = times_currenttime.toFixed(2);
-            }
-        };
-        
-        // previous timepoint
-        async function nextTimepoint() {
-            if (current_timepoint < t_max && current_timepoint + 1 <= t_max){
-                current_timepoint += 1; // Assuming integer steps based on slider min/max/step
-                // But current_timepoint in JS is treated as number, ensure it's number
-                current_timepoint = Number(current_timepoint);
-                timeSlider.value = current_timepoint;
-                const times_currenttime = PVF_times[current_timepoint];
-                if (present_PVF == true || present_streamlines == true){
-                    updatePVFStreamlines();
-                    updateVerticalLine();
-                }
-                if (present_source_estimate == true){
-                    loadVolume();
-                    updateVerticalLine();
-                }
-                
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-                timeStat.innerHTML = times_currenttime.toFixed(2);
-            }
-        };
-
-
+        // ===================== Load files =====================
 
         async function loadFile() {
             // 这里可以实现加载选中文件夹内文件的逻辑
@@ -2334,9 +2373,10 @@
             timeControl.style.visibility = "visible"
             timeControl.classList.remove("div-disabled");
             
-            subject = folderSelect.value;
-            file    = fileSelect.value;
-            const response = await fetch(`http://${server_ip}:${server_port}/api/load-subjects-files?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
+            const subject = folderSelect.value;
+            const session = sessionSelect.value;
+            const file    = fileSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-subjects-files?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}`);
                 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
@@ -2401,16 +2441,63 @@
             
         }
 
+        // ===================== Time control =====================
+        // previous timepoint
+        async function prevTimepoint() {
+            if (current_timepoint > t_min){
+                current_timepoint -= 1;
+                timeSlider.value = current_timepoint;
+                const times_currenttime = PVF_times[current_timepoint];
+                if (present_PVF == true || present_streamlines == true){
+                    updatePVFStreamlines();
+                    updateVerticalLine();
+                }
+                if (present_source_estimate == true){
+                    loadVolume();
+                    updateVerticalLine();
+                }
+                
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
+            }
+        };
+        
+        // previous timepoint
+        async function nextTimepoint() {
+            if (current_timepoint < t_max && current_timepoint + 1 <= t_max){
+                current_timepoint += 1; // Assuming integer steps based on slider min/max/step
+                // But current_timepoint in JS is treated as number, ensure it's number
+                current_timepoint = Number(current_timepoint);
+                timeSlider.value = current_timepoint;
+                const times_currenttime = PVF_times[current_timepoint];
+                if (present_PVF == true || present_streamlines == true){
+                    updatePVFStreamlines();
+                    updateVerticalLine();
+                }
+                if (present_source_estimate == true){
+                    loadVolume();
+                    updateVerticalLine();
+                }
+                
+                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
+                timeStat.innerHTML = times_currenttime.toFixed(2);
+            }
+        };
+
+
+
+
         // ===================== visualising spatiotemporal modes =====================
         async function loadModeFields(){
             // 这里可以实现加载选中文件夹内文件的逻辑
             loadingIndicator.classList.remove('hidden', 'opacity-0');
-            subject = folderSelect.value;
-            file    = fileSelect.value;
-            modeID  = modeSelect.value - 1;
+            const subject = folderSelect.value;
+            const session = sessionSelect.value;
+            const file    = fileSelect.value;
+            const modeID  = modeSelect.value - 1;
             console.log("requesting mode: " + modeID)
 
-            const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(modeID)}`);
+            const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(modeID)}`);
                 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
@@ -2725,9 +2812,10 @@
         async function loadVolume(){
             document.getElementById('show-source').checked = true;
             present_source_estimate = true;
-            subject = folderSelect.value;
-            file    = seFileSelect.value;
-            const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
+            const subject = folderSelect.value;
+            const session = sessionSelect.value;
+            const file    = seFileSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
 
             
             if (!response.ok) {
@@ -3147,15 +3235,7 @@
             }
         }
 
-        // 监听下拉框变化
-        folderSelect.addEventListener('click', (e) => {
-            const selectedSubject = e.target.value;
-            // showSelectedFolder(selectedSubject);
-            loadFileList(selectedSubject);
-            
-            // 如果需要实现多级浏览，可以在这里递归加载子文件夹
-            // loadSubjectList(selectedPath);
-        });
+
     </script>
 </body>
 </html>
