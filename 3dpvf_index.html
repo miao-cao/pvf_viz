@@ -1832,6 +1832,7 @@
             camera.updateProjectionMatrix();
 
             /* ---------- 4. 渲染一帧高清画面 ---------- */
+            // scene.background = new THREE.Color(0xFFFFFF); // THREE.Color(0x1E293B);0x03080b
             renderer.render(scene, camera);
 
             /* ---------- 5. 读取像素并生成 Blob ---------- */
