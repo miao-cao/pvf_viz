@@ -516,9 +516,8 @@ def extract_ses_info(input_str, get_all=False):
     """
     # 正则表达式解释：
     # ses- ：匹配固定前缀 "ses-"
-    # \w+ ：匹配任意字母、数字、下划线（至少1个），如果需要支持特殊字符可改为 .+?
-    # 如果需要严格匹配 ses- 后跟字母数字（无特殊字符），用 \w+；如果需要匹配任意字符，用 .+?
-    pattern = r'ses-\w+'
+    # \d+ ：匹配数字，如果需要支持特殊字符可改为 .+?
+    pattern = r'ses-\d+'
     
     # 查找所有匹配项
     matches = re.findall(pattern, input_str)
