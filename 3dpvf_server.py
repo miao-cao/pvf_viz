@@ -162,7 +162,7 @@ async def get_brain_surfaces(subject: str = Query(None)):
             "subject_id" : subject,     }
 
 
-# ------ functions to load more subjects --------------
+# ------ functions to prepare data for api responses --------------
 def process_pvf_time_window(subject_name: str, session: str, file_name: str, pvf_time_window_id: int) -> Dict[str, Any]:
     '''
         process PVF vector positions and directions at a specific time window.
@@ -532,7 +532,7 @@ def extract_ses_info(input_str, get_all=False):
         return matches[0]
 
 # ------------------------------------------------------
-# load to visualise source estimate
+# load and prepare source estimate data
 def load_subject_source_estimate(subject_name: str, session: str, file_name: str, timepoint: str):
     global subjects_loaded_pvf_data
 
