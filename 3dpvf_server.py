@@ -512,11 +512,11 @@ def extract_ses_info(input_str, get_all=False):
         get_all (bool): getting all matched patterns or not. True to return all. False to only return the first one.
         
     Returns:
-        list/str/None: 匹配结果（多个返回列表，单个返回字符串，无匹配返回 None）
+        list/str/None: matched strings, first matched string or all matched string, or None if no match found.
     """
-    # 正则表达式解释：
-    # ses- ：匹配固定前缀 "ses-"
-    # \d+ ：匹配数字，如果需要支持特殊字符可改为 .+?
+    # Regular expression：
+    # ses- : matching prefix "ses-"
+    # \d+ ：matching digits (one or more)
     pattern = r'ses-\d+'
     
     # 查找所有匹配项
