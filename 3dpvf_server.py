@@ -32,7 +32,7 @@ app.add_middleware(
 # Subjects' PVF data loaded to memory
 MAX_NUM_SUBJECTS_ALLOWED_LOAD = 2           # this number is restricted by max RAM size allowed by server process.
 subjects_loaded_pvf_data      = dict()
-subject_list_index_dict       = []
+subject_list_index_dict       = []          
 
 
 # PVF streamlines
