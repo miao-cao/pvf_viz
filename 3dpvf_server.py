@@ -92,7 +92,7 @@ async def list_subject_source_estimate_files(subject: str = Query(None), session
     if os.path.exists(session_dir) == False:
         return fname_list
     
-    fname_list = [fname for fname in os.listdir(session_dir) if os.path.isfile(os.path.join(session_dir, fname)) and fname.endswith("-stc.h5")]
+    fname_list = [fname for fname in os.listdir(session_dir) if os.path.isfile(os.path.join(session_dir, fname)) and fname.endswith("maxpower-stc.h5")] # only load maxpower-stc.h5 files
     
     print(fname_list)
     return fname_list
