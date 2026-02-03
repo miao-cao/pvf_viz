@@ -178,6 +178,12 @@
                                 <option value="">Loading sessions...</option>
                             </select>
                         </div>
+                        <div class="text-sm text-gray-600 gap-2">
+                            <button id="load-session-button" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="loadSessionList()">
+                                <i class="fas fa-list"></i>
+                                <span>Load Session List</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Meta File Button -->
@@ -234,6 +240,20 @@
                                 </button>
                             </div>
                         </div>
+
+
+                        <label class="block text-sm font-medium text-light/80 mb-1">Structural MRI</label>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="show-mri" class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
+                            <label for="show-mri" class="ml-2 text-sm text-light/80">Show structural MRI</label>
+                        </div>                                                               
+                        <div class="flex items-center">
+                            <button id="present-sensor-signals" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadSMRIVolume()">
+                                <i class="fas fa-long-arrow-right"></i>
+                                <span>Present structural MRI</span>
+                            </button>
+                        </div>
+
 
                         <label class="block text-sm font-medium text-light/80 mb-1">Source estimate</label>
                         <div class="flex items-center">
@@ -662,14 +682,14 @@
 
         // Three.js Scene Variables
         let scene, camera, renderer, controls;
-        let vectorField     = [];
-        let modeVectorField = [];
-        let vectorObjects   = [];
-        let volumeObjects   = [];
-        let particles       = [];
-        let isAnimating     = false;
-        let lastTime        = 0;
-        let fps             = 0;
+        let vectorField      = [];
+        let modeVectorField  = [];
+        let vectorObjects    = [];
+        let volumeObjects    = [];
+        let sMRIVolumePoints = [];
+        let isAnimating      = false;
+        let lastTime         = 0;
+        let fps              = 0;
         let gridHelper;
         let animationId;
         let sensor_signal_chart;
@@ -1770,47 +1790,10 @@
         
         // Toggle animation
         function toggleAnimation() {
-            // isAnimating = !isAnimating;
-            // const playPauseBtn = document.getElementById('play-pause');
-            
-            // if (isAnimating) {
-            //     playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
-            //     if (settings.showStreamlines && !this.particles) {
-            //         // createParticles();
-            //     }
-            // } else {
-            //     playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
-            // }
         }
         
         // Reset animation
         function resetAnimation() {
-            if (this.particles) {
-                const positions = this.particles.geometry.attributes.position.array;
-                
-                // Reset particles to random positions
-                for (let i = 0; i < settings.particleCount; i++) {
-                    const i3 = i * 3;
-                    positions[i3] = Math.random() * 20 - 10;  // x
-                    positions[i3 + 1] = Math.random() * 20 - 10;  // y
-                    positions[i3 + 2] = Math.random() * 20 - 10;  // z
-                    
-                    // Clear trail history
-                    this.particles.trailHistory[i] = [];
-                }
-                
-                this.particles.geometry.attributes.position.needsUpdate = true;
-                
-                // Remove trail lines
-                if (this.particles.trailLines) {
-                    this.particles.trailLines.forEach(line => {
-                        scene.remove(line);
-                        line.geometry.dispose();
-                        line.material.dispose();
-                    });
-                    this.particles.trailLines = [];
-                }
-            }
         }
         
         // Update stats display
@@ -1895,8 +1878,6 @@
             
             // Update controls
             controls.update();
-            
-            // Update particles if animation is enabled
             
             // Render scene
             renderer.render(scene, camera);
@@ -2361,8 +2342,7 @@
             }
         }
 
-        // ===================== Load files =====================
-
+        // ===================== Load meta data files =====================
         async function loadFile() {
             // 这里可以实现加载选中文件夹内文件的逻辑
             loadingIndicator.classList.remove('hidden', 'opacity-0');
@@ -2441,6 +2421,84 @@
             
         }
 
+
+        // ===================== Load structural MRI volume data =====================
+        async function loadSMRIVolume(){
+            const subject = folderSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-mri-volume?subject=${encodeURIComponent(subject)}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || `Failed to load folders (${response.status})`);
+            }
+            const data = await response.json();
+            clearSMRIVolume();
+            sMRIVolumePoints = createMRIVolumePoints(data);
+            controls.update(); // 更新控制器
+            renderer.render(scene, camera);
+        }
+
+        function clearSMRIVolume() {
+            if (!sMRIVolumePoints) return;
+
+            // 1. 从场景中移除对象
+            scene.remove(sMRIVolumePoints);
+
+            // 2. 释放几何体内存（关键：避免内存泄漏）
+            if (sMRIVolumePoints.geometry) {
+                sMRIVolumePoints.geometry.dispose();
+            }
+
+            // 3. 释放材质内存
+            if (sMRIVolumePoints.material) {
+                sMRIVolumePoints.material.dispose();
+            }
+
+            // 4. 清空引用（帮助JS垃圾回收）
+            sMRIVolumePoints = null;
+            renderer.clear();
+        }
+        
+        // ===================== Create structural MRI Volume =====================
+        function createMRIVolumePoints(data) {
+            // 根据坐标和灰度值创建可视化模型
+            const { positions, values } = data;
+            
+            // 步骤1：计算灰度值的最大/最小值（用于归一化）
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+            
+            // 步骤2：创建几何体，设置顶点位置和颜色
+            const geometry = new THREE.BufferGeometry();
+            // 设置顶点位置
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            
+            // 步骤3：将灰度值映射为颜色（灰度：R=G=B）
+            const colors = [];
+            for (let i = 0; i < values.length; i++) {
+                // 归一化灰度值到 0-1 范围
+                const normalized = (values[i] - minValue) / (maxValue - minValue);
+                // 灰度颜色：RGB 相同，可调整亮度范围（如乘以 0.8 避免过白）
+                const gray = Math.min(normalized, 1) * 0.9;
+                colors.push(gray, gray, gray);
+            }
+            // 设置顶点颜色
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            // 步骤4：创建点材质（控制渲染样式）
+            const material = new THREE.PointsMaterial({
+                size: 1, // 点的大小，可根据数据范围调整
+                vertexColors: true, // 使用顶点自定义颜色
+                transparent: true, // 透明（可选）
+                opacity: 0.4, // 不透明度
+                sizeAttenuation: true // 点大小随距离衰减（更真实）
+            });
+
+            // 步骤5：创建点云对象并添加到场景
+            const points = new THREE.Points(geometry, material);
+            scene.add(points);
+            return points;
+        }
+
         // ===================== Time control =====================
         // previous timepoint
         async function prevTimepoint() {
@@ -2483,9 +2541,6 @@
                 timeStat.innerHTML = times_currenttime.toFixed(2);
             }
         };
-
-
-
 
         // ===================== visualising spatiotemporal modes =====================
         async function loadModeFields(){
@@ -2589,6 +2644,8 @@
             container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "hidden"
+            const sourceColorBar = document.getElementById('activation-colorbar-container');
+            sourceColorBar.style.visibility = "hidden"
             const ttime_mode_canvas = document.createElement('canvas');
             container.appendChild(ttime_mode_canvas);
             ttime_mode_canvas.width  = "100%";
@@ -3218,6 +3275,7 @@
             return sphereGroup;
         }
 
+
         // 显示错误信息
         function showError(message) {
             errorDetails.textContent = message;
@@ -3230,14 +3288,14 @@
         }
         
         // 显示选中文件夹信息
-        function showSelectedFolder(path) {
-            if (path) {
-                selectedFolderPath.textContent = path;
-                selectedFolderInfo.classList.remove('hidden');
-            } else {
-                selectedFolderInfo.classList.add('hidden');
-            }
-        }
+        // function showSelectedFolder(path) {
+        //     if (path) {
+        //         selectedFolderPath.textContent = path;
+        //         selectedFolderInfo.classList.remove('hidden');
+        //     } else {
+        //         selectedFolderInfo.classList.add('hidden');
+        //     }
+        // }
 
 
     </script>

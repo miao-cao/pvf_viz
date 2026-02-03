@@ -544,6 +544,7 @@ def extract_ses_info(input_str, get_all=False):
     else:
         return matches[0]
 
+# ------------------------------------------------------
 
 # ------------------------------------------------------
 # load and prepare MRI volume data
