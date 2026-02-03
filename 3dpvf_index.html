@@ -248,7 +248,7 @@
                             <label for="show-mri" class="ml-2 text-sm text-light/80">Show structural MRI</label>
                         </div>                                                               
                         <div class="flex items-center">
-                            <button id="present-sensor-signals" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadSMRIVolume()">
+                            <button id="present-mri-volume" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-left gap-2" onclick="loadSMRIVolume()">
                                 <i class="fas fa-long-arrow-right"></i>
                                 <span>Present structural MRI</span>
                             </button>
@@ -653,6 +653,7 @@
 
         let present_sensor_signals  = false
         let present_source_estimate = false
+        let present_sMRI            = false
 
 
         let brainSurfaces = {
@@ -1009,6 +1010,17 @@
                     removeVectorObjects();
                 }
             });
+
+            document.getElementById('show-mri').addEventListener('change', (e) => {
+                present_sMRI = e.target.checked;
+                // console.log(present_PVF)
+                if (present_sMRI == true){
+                    loadSMRIVolume();
+                }else{
+                    clearSMRIVolume();
+                }
+            });
+            
             
 
             // Singularity Settings
