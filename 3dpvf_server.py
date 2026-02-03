@@ -168,13 +168,11 @@ async def get_brain_surfaces(subject: str = Query(None)):
     if not subject:
         return {"error": "Subject ID is required"}
     
-    mri_T1    = f"{FS_SUBJECTS_DIR}/{subject}/mri/T1.mgz"
-    t1_img    = nib.load(mri_T1)
-    T1_volume = t1_img.get_fdata()
-    affine    = t1_img.affine
+    mri_T1              = f"{FS_SUBJECTS_DIR}/{subject}/mri/T1.mgz"
+    position_value_dict = prepare_brain_mri_volume(mri_T1=mri_T1)
 
-    print(f"Brain MRI for subject: {subject} loaded.")
-    return prepare_brain_mri_volume(volume_data=T1_volume, affine=affine)
+    print(f"Loaded brain MRI for subject: {subject}")
+    return position_value_dict
 
 
 # ------ functions to prepare data for api responses --------------
@@ -546,6 +544,50 @@ def extract_ses_info(input_str, get_all=False):
     else:
         return matches[0]
 
+
+# ------------------------------------------------------
+# load and prepare MRI volume data
+def prepare_brain_mri_volume(mri_T1: str) -> Dict[str, Any]:
+    """
+        From volume_data, use volume voxel index (i,j,k) and affine matrix (4 by 4)
+        to convert to Freesurfer coordinates (x,y,z).
+    
+    Parameters:
+        volume_data: 
+            Numpy.ndarray, by default, 256 by 256 by 256. Array contains volume voxel grey values.
+        affine: 
+            4x4 affine matrix
+    
+    Returns:
+        dict:
+            A dictionary contains 'positions' and 'values' keys.
+            'positions' is a list of Freesurfer coordinates (x,y,z) for each non-zero voxel.
+            'values' is a list of corresponding voxel grey values.
+    """
+    volume_value_dict = dict()
+    volume_value_dict['positions'] = []
+    volume_value_dict['values']    = []
+
+    t1_img      = nib.load(mri_T1)
+    volume_data = t1_img.get_fdata()
+    affine      = t1_img.affine
+
+    xdim, ydim, zdim = volume_data.shape
+    for x_idx in range(xdim):
+        for y_idx in range(ydim):
+            for z_idx in range(zdim):
+                voxel_value = volume_data[x_idx, y_idx, z_idx]
+                if voxel_value > 0:  # only consider non-zero voxels
+                    voxel_homogeneous = np.array([x_idx, y_idx, z_idx, 1.0])
+                    coord_homogeneous = affine @ voxel_homogeneous
+                    fs_coord = coord_homogeneous[:3]
+                    volume_value_dict['positions'].append(fs_coord.tolist())
+                    volume_value_dict['values'].append(float(voxel_value))
+
+    return volume_value_dict
+# ------------------------------------------------------
+
+
 # ------------------------------------------------------
 # load and prepare source estimate data
 def load_subject_source_estimate(subject_name: str, session: str, file_name: str, timepoint: str):
@@ -589,43 +631,8 @@ def load_subject_source_estimate(subject_name: str, session: str, file_name: str
     else:
         source_data_time = source_data_time * 1000
     return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
-
 # ------------------------------------------------------
-# load and prepare MRI volume data
-def prepare_brain_mri_volume(volume_data: np.ndarray, affine: np.ndarray) -> Dict[str, Any]:
-    """
-        From volume_data, use volume voxel index (i,j,k) and affine matrix (4 by 4)
-        to convert to Freesurfer coordinates (x,y,z).
-    
-    Parameters:
-        volume_data: 
-            Numpy.ndarray, by default, 256 by 256 by 256. Array contains volume voxel grey values.
-        affine: 
-            4x4 affine matrix
-    
-    Returns:
-        dict:
-            A dictionary contains 'positions' and 'values' keys.
-            'positions' is a list of Freesurfer coordinates (x,y,z) for each non-zero voxel.
-            'values' is a list of corresponding voxel grey values.
-    """
-    volume_value_dict = dict()
-    volume_value_dict['positions'] = []
-    volume_value_dict['values']    = []
 
-    xdim, ydim, zdim = volume_data.shape
-    for x_idx in range(xdim):
-        for y_idx in range(ydim):
-            for z_idx in range(zdim):
-                voxel_value = volume_data[x_idx, y_idx, z_idx]
-                if voxel_value > 0:  # 只处理非零体素
-                    voxel_homogeneous = np.array([x_idx, y_idx, z_idx, 1.0])
-                    coord_homogeneous = affine @ voxel_homogeneous
-                    fs_coord = coord_homogeneous[:3]
-                    volume_value_dict['positions'].append(fs_coord.tolist())
-                    volume_value_dict['values'].append(float(voxel_value))
-
-    return volume_value_dict
 
 # ------ response of pvf (json) data to api requests --------------
 def resp_pvf_json(subject_name: str, session: str, file_name: str, timepoint: int) -> Dict[str, Any]:
