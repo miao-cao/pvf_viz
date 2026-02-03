@@ -162,7 +162,6 @@ async def get_brain_surfaces(subject: str = Query(None)):
             "rh_surface": {'vertices': rh_vertices.tolist(), 'faces': rh_faces.tolist()},
             "subject_id" : subject,     }
 
-
 @app.get("/api/get-brain-mri-volume")
 async def get_brain_surfaces(subject: str = Query(None)):
     """Obtain Brain MRI volume"""
@@ -176,6 +175,7 @@ async def get_brain_surfaces(subject: str = Query(None)):
 
     print(f"Brain MRI for subject: {subject} loaded.")
     return prepare_brain_mri_volume(volume_data=T1_volume, affine=affine)
+
 
 # ------ functions to prepare data for api responses --------------
 def process_pvf_time_window(subject_name: str, session: str, file_name: str, pvf_time_window_id: int) -> Dict[str, Any]:
@@ -604,7 +604,10 @@ def prepare_brain_mri_volume(volume_data: np.ndarray, affine: np.ndarray) -> Dic
             4x4 affine matrix
     
     Returns:
-        tuple: (x,y,z) Freesurfer coordinates (unit mm) and corresponding voxel grey values.
+        dict:
+            A dictionary contains 'positions' and 'values' keys.
+            'positions' is a list of Freesurfer coordinates (x,y,z) for each non-zero voxel.
+            'values' is a list of corresponding voxel grey values.
     """
     volume_value_dict = dict()
     volume_value_dict['positions'] = []
