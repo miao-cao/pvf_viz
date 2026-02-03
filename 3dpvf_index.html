@@ -2424,6 +2424,8 @@
 
         // ===================== Load structural MRI volume data =====================
         async function loadSMRIVolume(){
+            const checkboxLoadSMRI = document.getElementById('show-mri');
+            checkboxLoadSMRI.checked = true;
             const subject = folderSelect.value;
             const response = await fetch(`http://${server_ip}:${server_port}/api/get-brain-mri-volume?subject=${encodeURIComponent(subject)}`);
             if (!response.ok) {
@@ -2432,6 +2434,7 @@
             }
             const data = await response.json();
             clearSMRIVolume();
+            console.log('load sMRI volume data');
             sMRIVolumePoints = createMRIVolumePoints(data);
             controls.update(); // 更新控制器
             renderer.render(scene, camera);
@@ -2462,11 +2465,7 @@
         function createMRIVolumePoints(data) {
             // 根据坐标和灰度值创建可视化模型
             const { positions, values } = data;
-            
-            // 步骤1：计算灰度值的最大/最小值（用于归一化）
-            const minValue = Math.min(...values);
-            const maxValue = Math.max(...values);
-            
+
             // 步骤2：创建几何体，设置顶点位置和颜色
             const geometry = new THREE.BufferGeometry();
             // 设置顶点位置
@@ -2476,7 +2475,7 @@
             const colors = [];
             for (let i = 0; i < values.length; i++) {
                 // 归一化灰度值到 0-1 范围
-                const normalized = (values[i] - minValue) / (maxValue - minValue);
+                const normalized = values[i]; // 假设 values 已经在 0-1 范围内
                 // 灰度颜色：RGB 相同，可调整亮度范围（如乘以 0.8 避免过白）
                 const gray = Math.min(normalized, 1) * 0.9;
                 colors.push(gray, gray, gray);
@@ -2490,7 +2489,7 @@
                 vertexColors: true, // 使用顶点自定义颜色
                 transparent: true, // 透明（可选）
                 opacity: 0.4, // 不透明度
-                sizeAttenuation: true // 点大小随距离衰减（更真实）
+                // sizeAttenuation: true // 点大小随距离衰减（更真实）
             });
 
             // 步骤5：创建点云对象并添加到场景

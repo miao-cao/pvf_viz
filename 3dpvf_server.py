@@ -581,9 +581,15 @@ def prepare_brain_mri_volume(mri_T1: str) -> Dict[str, Any]:
                 if voxel_value > 0:  # only consider non-zero voxels
                     voxel_homogeneous = np.array([x_idx, y_idx, z_idx, 1.0])
                     coord_homogeneous = affine @ voxel_homogeneous
-                    fs_coord = coord_homogeneous[:3]
-                    volume_value_dict['positions'].append(fs_coord.tolist())
+                    fs_coord = [round(coord, 2) for coord in coord_homogeneous[:3]]
+                    volume_value_dict['positions'].append(fs_coord)
                     volume_value_dict['values'].append(float(voxel_value))
+
+    # normalize values to [0, 1]
+    max_value = max(volume_value_dict['values']) if volume_value_dict['values'] else 1
+    min_value = min(volume_value_dict['values']) if volume_value_dict['values'] else 0
+    value_range = max_value - min_value if (max_value - min_value) != 0 else 1
+    volume_value_dict['values'] = [val - min_value / value_range for val in volume_value_dict['values']]
 
     return volume_value_dict
 # ------------------------------------------------------
