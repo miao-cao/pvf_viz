@@ -2816,26 +2816,42 @@
                 plugins: {
                     annotation:{
                         annotations:{
-                            verticalLine: {
-                                type       : 'line',       // 类型：线
-                                scaleID    : 'x',          // 绑定 X 轴（画垂直线必须）
-                                value      : current_time, // X 轴上的位置（比如50这个刻度）
-                                borderColor: '#df5c4e',    // 线的颜色
-                                borderWidth: 2,            // 线的宽度
-                                // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
-                                // 可选：添加标签
+                            // verticalLine: {
+                            //     type       : 'line',       // 类型：线
+                            //     scaleID    : 'x',          // 绑定 X 轴（画垂直线必须）
+                            //     value      : current_time, // X 轴上的位置（比如50这个刻度）
+                            //     borderColor: '#df5c4e',    // 线的颜色
+                            //     borderWidth: 2,            // 线的宽度
+                            //     // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
+                            //     // 可选：添加标签
+                            //     label: {
+                            //         display        : true,
+                            //         content        : 'Time line', // 标签文字
+                            //         position       : 'bottom',       // 标签位置（top/bottom/start/end）
+                            //         color          : '#fff',      // 标签文字颜色
+                            //         backgroundColor: '#df5c4e' // 标签背景色
+                            //     }
+                            // }
+                            timeLine: {
+                                type       : 'line',
+                                // scaleID    : 'x',
+                                // mode       : 'vertical',   // 垂直线
+                                xMin       : current_time, // 初始位置 x=0
+                                xMax       : current_time, // 初始位置 x=0
+                                borderColor: '#df5c4e',
+                                borderWidth: 2,
                                 label: {
-                                    display        : true,
-                                    content        : 'Time line', // 标签文字
-                                    position       : 'top',       // 标签位置（top/bottom/start/end）
-                                    color          : '#fff',      // 标签文字颜色
-                                    backgroundColor: '#df5c4e' // 标签背景色
+                                    display: true,
+                                    content: 'Time line: ' + current_time, // 标签文字
+                                    position: 'end',
+                                    color: '#fff',
+                                    backgroundColor: '#df5c4e',
                                 }
                             }
                         }
                     }, 
                     title: {
-                        font   : {size: 30},
+                        font   : {size: 24},
                         display: true,
                         color  : '#cfeaf4',  // 图例文字颜色
                         text   : 'Sensor signals'
@@ -2864,16 +2880,23 @@
             };
 
             // 5. 初始化图表并绘制
-            sensor_signal_chart = new Chart(sensor_signals_canvas, {
+            window.sensor_signal_chart = new Chart(sensor_signals_canvas, {
                                                     type   : 'line',
                                                     data   : chartData,
                                                     options: chartOptions,});
         }
 
         function updateVerticalLine() {
+            
             current_time = PVF_times[current_timepoint].toFixed(2)
-            sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.value = current_time;
-            sensor_signal_chart.update(); // 刷新图表
+            console.log("Updating vertical line to time: " + current_time + " at timepoint index: " + current_timepoint);
+
+            // window.sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.value = current_time;
+            window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.xMin = current_time;
+            window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.xMax = current_time;
+            window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.label.content = 'Time line: ' + current_time;
+            console.log("Updating vertical line to time: " + window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.xMin + " at timepoint index: " + current_timepoint);
+            window.sensor_signal_chart.update(); // 刷新图表
         }
 
         // ===================== visualising source estimate =====================
@@ -3003,10 +3026,10 @@
             const sizes            = [];
             const alphas           = [];
             // 1. 定义分段颜色（可自定义）
-            const colorBlueDeep  = hexToRgb('#6495ED');   // 低值起始：深蓝（自定义）
-            const colorBlueLight = hexToRgb('#F0FFFF');  // 低值结束：浅蓝（指定）
-            const colorRedLight  = hexToRgb('#FBCEB1');   // 高值起始：浅红（自定义）
-            const colorRedDeep   = hexToRgb('#FF7F50');    // 高值结束：橙红（指定）
+            const colorBlueDeep  = hexToRgb('#6495ED');     // 低值起始：深蓝（自定义）
+            const colorBlueLight = hexToRgb('#F0FFFF');     // 低值结束：浅蓝（指定）
+            const colorRedLight  = hexToRgb('#FBCEB1');     // 高值起始：浅红（自定义）
+            const colorRedDeep   = hexToRgb('#FF7F50');     // 高值结束：橙红（指定）
             
             // 2. 定义分段阈值（可调整）
             const lowEnd    = 0.4;    // 低值段结束点（0~0.4：蓝→浅蓝）
