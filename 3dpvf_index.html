@@ -1055,7 +1055,7 @@
             });
 
             document.getElementById('time-slider').addEventListener('change', (e) => {
-                current_timepoint               = e.target.value;
+                current_timepoint               = Number(e.target.value);
                 const times_currenttime = PVF_times[current_timepoint];
                 timeSliderCurrentTime.innerHTML = "Current Time=" + times_currenttime.toFixed(3) + "s";
                 timeStat.innerHTML = times_currenttime.toFixed(3) + "s";
@@ -1069,7 +1069,7 @@
                 }
                 
                 
-                showError(current_timepoint)
+                // showError(current_timepoint)
                 // updateVectorObjects();
             });
 
@@ -1404,7 +1404,7 @@
                     //     opacity: 0.25,
                     //     wireframe: false
                     // });
-                    console.log("Loading left hemisphere surface from:", data.lh_surface);
+                    // console.log("Loading left hemisphere surface from:", data.lh_surface);
                     const meshOrObj = await brainLoader.loadSurfObj(data.lh_surface, {
                         color: 0x222222,
                         opacity: 0.25,
@@ -1632,7 +1632,7 @@
 
             // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
             const colorGradientStyleBackground = `linear-gradient(to bottom, ${vectorField_end_color} 0%,  ${vectorField_start_color} 100%)`;
-            console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
+            // console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
             const colorbarGradient = document.createElement('div');
             colorbarGradient.style.position = 'flex';
             colorbarGradient.style.left = '0px';
@@ -1687,7 +1687,7 @@
 
             container.appendChild(labelsContainer);
 
-            console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
+            // console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
             return container;
         }
 
@@ -2100,7 +2100,7 @@
 
             // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
             const colorGradientStyleBackground = `linear-gradient(to bottom, ${streamline_start_color_string} 0%, #FFFFFF 50%, ${String(streamline_end_color_string)} 100%)`;
-            console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
+            // console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
             const colorbarGradient = document.createElement('div');
             colorbarGradient.style.position = 'flex';
             colorbarGradient.style.left = '0px';
@@ -2155,7 +2155,7 @@
 
             container.appendChild(labelsContainer);
 
-            console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
+            // console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
             return container;
         }
 
@@ -2264,7 +2264,7 @@
         // ===================== load metadata json file and source estimate list =====================
         async function loadFileList(subject, session) {
             // 这里可以实现加载选中文件夹内文件的逻辑
-            console.log(`Load files for subject: ${subject}`);
+            // console.log(`Load files for subject: ${subject}`);
             try {
                 // 显示加载状态
                 fileSelect.innerHTML = '<option value="">Loading Files...</option>';
@@ -2293,7 +2293,7 @@
                 const se_data= await response_se.json();
 
                 // console.log(Object.keys(data).length);
-                console.log(data);
+                // console.log(data);
 
                 // 清空并添加默认选项
                 fileSelect.innerHTML = '';
@@ -2323,7 +2323,7 @@
 
 
                 seFileSelect.innerHTML = '';
-                console.log(se_data);
+                // console.log(se_data);
                 count_opt = 0;
                 for (const key in se_data) {
                     // console.log(key, data[key]);
@@ -2446,7 +2446,7 @@
             }
             const data = await response.json();
             clearSMRIVolume();
-            console.log('load sMRI volume data');
+            // console.log('load sMRI volume data');
             sMRIVolumePoints = createMRIVolumePoints(data);
             controls.update(); // 更新控制器
             renderer.render(scene, camera);
@@ -2533,9 +2533,11 @@
         
         // next timepoint
         async function nextTimepoint() {
+            
             if (current_timepoint < t_max && current_timepoint + 1 <= t_max){
                 current_timepoint += 1; // Assuming integer steps based on slider min/max/step
                 // But current_timepoint in JS is treated as number, ensure it's number
+                // console.log(`Current timepoint: ${current_timepoint}, t_max: ${t_max}`);
                 timeSlider.value = current_timepoint;
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
@@ -2560,7 +2562,7 @@
             const session = sessionSelect.value;
             const file    = fileSelect.value;
             const modeID  = modeSelect.value - 1;
-            console.log("requesting mode: " + modeID)
+            // console.log("requesting mode: " + modeID)
 
             const response = await fetch(`http://${server_ip}:${server_port}/api/load-modes?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}&mode=${encodeURIComponent(modeID)}`);
                 
@@ -2643,7 +2645,7 @@
         }
 
         function showTemporalModes(){
-            console.log(PVF_temporal_modes)
+            // console.log(PVF_temporal_modes)
             modeID = modeSelect.value - 1;
             // 1. 创建Canvas元素（插入到chartContainer中）
             const sensor_signals = document.getElementById('sensor-signal-plot');
@@ -3017,7 +3019,7 @@
             const highStart = 0.6; // 高值段起始点（0.6~1：浅红→橙红）
             const midPoint  = 0.5;  // 中间透明点（0.4~0.6：透明）
 
-            console.log(`Value Range: min=${minValue}, max=${maxValue}`);
+            // console.log(`Value Range: min=${minValue}, max=${maxValue}`);
             for (let i = 0; i < positions.length; i++) {
                 const [x, y, z] = positions[i];
                 volume_positions.push(x, y, z);
@@ -3146,7 +3148,7 @@
 
             // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
             const colorGradientStyleBackground = `linear-gradient(to bottom, ${sourceEstimate_low_end} 0%, ${sourceEstimate_low_mid} 25%, ${sourceEstimate_high_mid} 75%, ${sourceEstimate_high_end} 100%)`;
-            console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
+            // console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
             const colorbarGradient = document.createElement('div');
             colorbarGradient.style.position = 'flex';
             colorbarGradient.style.left = '0px';
