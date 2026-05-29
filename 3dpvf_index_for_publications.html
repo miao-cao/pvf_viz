@@ -1836,46 +1836,122 @@
          * @param {number} targetWidth  期望宽度（默认 3840）
          * @param {number} targetHeight 期望高度（默认 2160）
          */
+        // function export3DScreenshot(targetWidth = 7680, targetHeight = 4320) {
+        //     targetWidth  = 3840;
+        //     targetHeight = 2160;
+        //     /* ---------- 1. 保存当前状态 ---------- */
+        //     const prevWidth  = renderer.domElement.width;
+        //     const prevHeight = renderer.domElement.height;
+        //     const prevCamera = camera.aspect;
+        //     console.log(`Current canvas size: ${prevWidth}x${prevHeight}, camera aspect: ${prevCamera}`);
+
+        //     /* ---------- 2. 创建离屏高分辨率画布 ---------- */
+        //     const offCanvas = document.createElement('canvas');
+        //     offCanvas.width  = targetWidth;
+        //     offCanvas.height = targetHeight;
+
+        //     /* ---------- 3. 临时把 renderer 指向离屏画布 ---------- */
+        //     const oldTarget = renderer.getRenderTarget();   // 保留原目标（如果有后期处理通道）
+        //     renderer.setSize(targetWidth, targetHeight);    // 设置绘制尺寸
+        //     camera.aspect = targetWidth / targetHeight;     // 修正相机比例
+        //     camera.updateProjectionMatrix();
+
+        //     /* ---------- 4. 渲染一帧高清画面 ---------- */
+        //     scene.background = new THREE.Color(0xFFFFFF); // THREE.Color(0x1E293B);0x03080b
+        //     renderer.render(scene, camera);
+
+        //     /* ---------- 5. 读取像素并生成 Blob ---------- */
+        //     offCanvas.getContext('2d').drawImage(renderer.domElement, 0, 0);
+        //     offCanvas.toBlob(blob => {
+        //         const url = URL.createObjectURL(blob);
+        //         const a   = document.createElement('a');
+        //         a.href    = url;
+        //         a.download= `pvf_${subject_ID||'scene'}_${targetWidth}×${targetHeight}_${Date.now()}.png`;
+        //         a.click();
+        //         URL.revokeObjectURL(url);
+        //         showError(`Exported ${targetWidth}×${targetHeight} image`);
+        //     }, 'image/png');
+
+        //     /* ---------- 6. 恢复现场 ---------- */
+        //     // renderer.setSize(prevWidth, prevHeight);
+        //     camera.aspect = prevCamera;
+        //     camera.updateProjectionMatrix();
+        //     renderer.render(scene, camera);   // 重新画回屏幕
+        // }
+
         function export3DScreenshot(targetWidth = 3840, targetHeight = 2160) {
-            targetWidth  = 3840;
+            targetWidth = 3840;
             targetHeight = 2160;
-            /* ---------- 1. 保存当前状态 ---------- */
-            const prevWidth  = renderer.domElement.width;
-            const prevHeight = renderer.domElement.height;
-            const prevCamera = camera.aspect;
 
-            /* ---------- 2. 创建离屏高分辨率画布 ---------- */
-            const offCanvas = document.createElement('canvas');
-            offCanvas.width  = targetWidth;
-            offCanvas.height = targetHeight;
+            // ==========================
+            // 1. 保存所有原始状态（完整备份）
+            // ==========================
+            const original = {
+                width: renderer.domElement.width,
+                height: renderer.domElement.height,
+                aspect: camera.aspect,
+                position: camera.position.clone(),
+                target: controls.target.clone(),
+                background: scene.background,
+                renderTarget: renderer.getRenderTarget()
+            };
 
-            /* ---------- 3. 临时把 renderer 指向离屏画布 ---------- */
-            const oldTarget = renderer.getRenderTarget();   // 保留原目标（如果有后期处理通道）
-            renderer.setSize(targetWidth, targetHeight);    // 设置绘制尺寸
-            camera.aspect = targetWidth / targetHeight;     // 修正相机比例
+            // ==========================
+            // 2. 计算大脑包围盒（不改变视角）
+            // ==========================
+            const box = new THREE.Box3().setFromObject(scene);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            // 保存当前相机方向（完全不改变角度）
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+
+            // 计算合适距离
+            const fovRad = camera.fov * Math.PI / 180;
+            const dist = (maxDim / 2) / Math.tan(fovRad / 2) * 1.3;
+
+            // ==========================
+            // 3. 临时设置相机（只用于导出）
+            // ==========================
+            camera.position.copy(center.clone().add(dir.multiplyScalar(-dist)));
+            controls.target.copy(center);
+            controls.update();
+
+            // ==========================
+            // 4. 高清渲染设置
+            // ==========================
+            renderer.setSize(targetWidth, targetHeight);
+            camera.aspect = targetWidth / targetHeight;
             camera.updateProjectionMatrix();
-
-            /* ---------- 4. 渲染一帧高清画面 ---------- */
-            scene.background = new THREE.Color(0xFFFFFF); // THREE.Color(0x1E293B);0x03080b
+            scene.background = new THREE.Color(0xffffff);
+            renderer.setRenderTarget(null);
             renderer.render(scene, camera);
 
-            /* ---------- 5. 读取像素并生成 Blob ---------- */
-            offCanvas.getContext('2d').drawImage(renderer.domElement, 0, 0);
-            offCanvas.toBlob(blob => {
-                const url = URL.createObjectURL(blob);
-                const a   = document.createElement('a');
-                a.href    = url;
-                a.download= `pvf_${subject||'scene'}_${targetWidth}×${targetHeight}_${Date.now()}.png`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showError(`Exported ${targetWidth}×${targetHeight} image`);
-            }, 'image/png');
+            // ==========================
+            // 5. 导出图片
+            // ==========================
+            const dataURL = renderer.domElement.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = `pvf_${subject_ID||'scene'}_${targetWidth}×${targetHeight}_${Date.now()}.png`;
+            a.click();
 
-            /* ---------- 6. 恢复现场 ---------- */
-            // renderer.setSize(prevWidth, prevHeight);
-            camera.aspect = prevCamera;
+            // ==========================
+            // 6. ✅ 同步立刻还原！绝不残留
+            // ==========================
+            renderer.setSize(original.width, original.height);
+            camera.position.copy(original.position);
+            controls.target.copy(original.target);
+            camera.aspect = original.aspect;
             camera.updateProjectionMatrix();
-            renderer.render(scene, camera);   // 重新画回屏幕
+            controls.update();
+            scene.background = original.background;
+            renderer.setRenderTarget(original.renderTarget);
+            renderer.render(scene, camera);
+
+            showError("✅ Exported high-res screenshot and restored original view");
         }
 
 
