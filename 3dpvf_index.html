@@ -2531,12 +2531,11 @@
             }
         };
         
-        // previous timepoint
+        // next timepoint
         async function nextTimepoint() {
             if (current_timepoint < t_max && current_timepoint + 1 <= t_max){
                 current_timepoint += 1; // Assuming integer steps based on slider min/max/step
                 // But current_timepoint in JS is treated as number, ensure it's number
-                current_timepoint = Number(current_timepoint);
                 timeSlider.value = current_timepoint;
                 const times_currenttime = PVF_times[current_timepoint];
                 if (present_PVF == true || present_streamlines == true){
@@ -2819,7 +2818,7 @@
                             verticalLine: {
                                 type       : 'line',       // 类型：线
                                 scaleID    : 'x',          // 绑定 X 轴（画垂直线必须）
-                                value      : Number(current_timepoint) / 1.000, // X 轴上的位置（比如50这个刻度）aligned with xaxis value, not pixel value
+                                value      : current_timepoint / 1.000, // X 轴上的位置（比如50这个刻度）aligned with xaxis value, not pixel value
                                 // xMin: current_timepoint / 100 * (PVF_times[PVF_times.length - 1] - PVF_times[0]) + PVF_times[0], // 初始位置 x=0
                                 // xMax: current_timepoint / 100 * (PVF_times[PVF_times.length - 1] - PVF_times[0]) + PVF_times[0], //
                                 borderColor: '#df5c4e',    // 线的颜色
