@@ -750,10 +750,10 @@
                 
                 // 严格验证输入参数的合法性
                 if (!Array.isArray(vector3List) || vector3List.length < 2) {
-                    throw new Error("CustomCurve：vector3List必须是包含至少2个THREE.Vector3的数组");
+                    throw new Error("CustomCurve: vector3List必须是包含至少2个THREE.Vector3的数组");
                 }
                 if (!vector3List.every(item => item instanceof THREE.Vector3)) {
-                    throw new Error("CustomCurve：vector3List中的所有元素必须是THREE.Vector3实例");
+                    throw new Error("CustomCurve: vector3List中的所有元素必须是THREE.Vector3实例");
                 }
                 
                 // 深拷贝保存原始Vector3列表，避免外部修改影响曲线内部数据（完全保留原始顶点）
@@ -972,10 +972,10 @@
             const times_tmin        = t_min;
             const times_tmax        = t_max;
             const times_currenttime = 0;
-            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
-            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
-            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-            timeStat.innerHTML = times_currenttime.toFixed(2);
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(3) + "s";
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(3) + "s";
+            timeSliderCurrentTime.innerHTML = "Current Time=" + times_currenttime.toFixed(3) + "s";
+            timeStat.innerHTML = times_currenttime.toFixed(3) + "s";
             
             // Vector scale
             document.getElementById('vector-scale').addEventListener('input', (e) => {
@@ -1057,8 +1057,8 @@
             document.getElementById('time-slider').addEventListener('change', (e) => {
                 current_timepoint               = e.target.value;
                 const times_currenttime = PVF_times[current_timepoint];
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-                timeStat.innerHTML = times_currenttime.toFixed(2);
+                timeSliderCurrentTime.innerHTML = "Current Time=" + times_currenttime.toFixed(3) + "s";
+                timeStat.innerHTML = times_currenttime.toFixed(3) + "s";
                 if (present_PVF == true || present_streamlines == true){
                     updatePVFStreamlines();
                     updateVerticalLine();
@@ -2394,10 +2394,10 @@
             const times_tmin        = PVF_times[t_min];
             const times_tmax        = PVF_times[t_max];
             const times_currenttime = PVF_times[timeSlider.value];
-            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(2);
-            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(2);
-            timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-            timeStat.innerHTML = times_currenttime.toFixed(2);
+            timeSliderTMax.innerHTML = "Tmax=" + times_tmax.toFixed(3) + "s";
+            timeSliderTMin.innerHTML = "Tmin=" + times_tmin.toFixed(3) + "s";
+            timeSliderCurrentTime.innerHTML = "Current Time=" + times_currenttime.toFixed(3) + "s";
+            timeStat.innerHTML = times_currenttime.toFixed(3) + "s";
 
             // console.log(PVF_mode_info);
             modeSelect.innerHTML = '';
@@ -2526,8 +2526,8 @@
                     updateVerticalLine();
                 }
                 
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-                timeStat.innerHTML = times_currenttime.toFixed(2);
+                timeSliderCurrentTime.innerHTML = "Current Time=" + times_currenttime.toFixed(3) + "s";
+                timeStat.innerHTML = times_currenttime.toFixed(3) + "s";
             }
         };
         
@@ -2548,8 +2548,8 @@
                     updateVerticalLine();
                 }
                 
-                timeSliderCurrentTime.innerHTML = "Curr Time=" + times_currenttime.toFixed(2);
-                timeStat.innerHTML = times_currenttime.toFixed(2);
+                timeSliderCurrentTime.innerHTML = "Current Time=" + times_currenttime.toFixed(3) + "s";
+                timeStat.innerHTML = times_currenttime.toFixed(3) + "s";
             }
         };
 
@@ -2791,10 +2791,10 @@
                 // line = line.map(item => (item * 1000).toFixed(2));
                 datasets.push(
                     {
-                       label               : `mode ${i+1}`,
+                       label               : `sensor ${i+1}`,
                        data                : line,
                        borderColor         : lineColors[0],          // 折线边框透明度
-                       borderWidth         : 0.2,                    // 高亮折线稍粗，提升辨识度
+                       borderWidth         : 0.5,                    // 高亮折线稍粗，提升辨识度
                        tension             : 0.2,
                        fill                : false,
                        pointRadius         : 0.5                     // 高亮数据点稍大
@@ -2807,7 +2807,7 @@
                 datasets: datasets
             }
 
-            current_time = PVF_times[current_timepoint].toFixed(2)
+            current_time = PVF_times[current_timepoint].toFixed(3)
             // 4. 配置Chart.js选项（背景透明、图例显示等）
             const chartOptions = {
                 responsive: true,
@@ -2816,36 +2816,22 @@
                 plugins: {
                     annotation:{
                         annotations:{
-                            // verticalLine: {
-                            //     type       : 'line',       // 类型：线
-                            //     scaleID    : 'x',          // 绑定 X 轴（画垂直线必须）
-                            //     value      : current_time, // X 轴上的位置（比如50这个刻度）
-                            //     borderColor: '#df5c4e',    // 线的颜色
-                            //     borderWidth: 2,            // 线的宽度
-                            //     // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
-                            //     // 可选：添加标签
-                            //     label: {
-                            //         display        : true,
-                            //         content        : 'Time line', // 标签文字
-                            //         position       : 'bottom',       // 标签位置（top/bottom/start/end）
-                            //         color          : '#fff',      // 标签文字颜色
-                            //         backgroundColor: '#df5c4e' // 标签背景色
-                            //     }
-                            // }
-                            timeLine: {
-                                type       : 'line',
-                                // scaleID    : 'x',
-                                // mode       : 'vertical',   // 垂直线
-                                xMin       : current_time, // 初始位置 x=0
-                                xMax       : current_time, // 初始位置 x=0
-                                borderColor: '#df5c4e',
-                                borderWidth: 2,
+                            verticalLine: {
+                                type       : 'line',       // 类型：线
+                                scaleID    : 'x',          // 绑定 X 轴（画垂直线必须）
+                                value      : Number(current_timepoint) / 1.000, // X 轴上的位置（比如50这个刻度）aligned with xaxis value, not pixel value
+                                // xMin: current_timepoint / 100 * (PVF_times[PVF_times.length - 1] - PVF_times[0]) + PVF_times[0], // 初始位置 x=0
+                                // xMax: current_timepoint / 100 * (PVF_times[PVF_times.length - 1] - PVF_times[0]) + PVF_times[0], //
+                                borderColor: '#df5c4e',    // 线的颜色
+                                borderWidth: 2,            // 线的宽度
+                                // borderDash: [5, 5],  // 可选：虚线（[实线长度, 间隔长度]）
+                                // 可选：添加标签
                                 label: {
-                                    display: true,
-                                    content: 'Time line: ' + current_time, // 标签文字
-                                    position: 'end',
-                                    color: '#fff',
-                                    backgroundColor: '#df5c4e',
+                                    display        : true,
+                                    content        : 'Time line: ' + current_time + 's', // 标签文字
+                                    position       : 'bottom',       // 标签位置（top/bottom/start/end）
+                                    color          : '#fff',      // 标签文字颜色
+                                    backgroundColor: '#df5c4e' // 标签背景色
                                 }
                             }
                         }
@@ -2879,24 +2865,20 @@
             
             };
 
+            
             // 5. 初始化图表并绘制
             window.sensor_signal_chart = new Chart(sensor_signals_canvas, {
-                                                    type   : 'line',
-                                                    data   : chartData,
-                                                    options: chartOptions,});
+                                                        type   : 'line',
+                                                        data   : chartData,
+                                                        options: chartOptions,});
         }
 
         function updateVerticalLine() {
-            
-            current_time = PVF_times[current_timepoint].toFixed(2)
-            console.log("Updating vertical line to time: " + current_time + " at timepoint index: " + current_timepoint);
-
-            // window.sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.value = current_time;
-            window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.xMin = current_time;
-            window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.xMax = current_time;
-            window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.label.content = 'Time line: ' + current_time;
-            console.log("Updating vertical line to time: " + window.sensor_signal_chart.options.plugins.annotation.annotations.timeLine.xMin + " at timepoint index: " + current_timepoint);
-            window.sensor_signal_chart.update(); // 刷新图表
+            current_time = PVF_times[current_timepoint].toFixed(3);
+            // console.log("Updating vertical line to time: " + current_time + " at timepoint index: " + current_timepoint);
+            window.sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.value = current_timepoint / 1.000;
+            window.sensor_signal_chart.options.plugins.annotation.annotations.verticalLine.label.content = 'Time line: ' + current_time + 's';
+            window.sensor_signal_chart.update('none'); // update/refresh the chart without animation
         }
 
         // ===================== visualising source estimate =====================
