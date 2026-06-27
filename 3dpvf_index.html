@@ -1255,12 +1255,13 @@
             try {
                 // 显示加载指示器
                 loadingIndicator.classList.remove('hidden', 'opacity-0');
-                const subject = folderSelect.value;
-                const session = sessionSelect.value;
-                const file    = seFileSelect.value;
+                const subject  = folderSelect.value;
+                const session  = sessionSelect.value;
+                const metafile = fileSelect.value;
+                const file     = seFileSelect.value;
                 
                 // 调用API获取表面文件路径
-                const response = await fetch(`http://${server_ip}:${server_port}/api/load-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}`);
+                const response = await fetch(`http://${server_ip}:${server_port}/api/load-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&metafile=${encodeURIComponent(metafile)}&file=${encodeURIComponent(file)}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to get brain surfaces (${response.status})`);
@@ -2761,7 +2762,7 @@
 
         function showSensorSignals(){
             // Chart.register(ChartAnnotation);
-            // console.log(PVF_sensor_signals.length)
+            console.log(PVF_sensor_signals.length)
             
             // 1. 创建Canvas元素（插入到chartContainer中）
             const time_mode = document.getElementById('time-mode-plot');
@@ -2886,10 +2887,11 @@
         async function loadVolume(){
             document.getElementById('show-source').checked = true;
             present_source_estimate = true;
-            const subject = folderSelect.value;
-            const session = sessionSelect.value;
-            const file    = seFileSelect.value;
-            const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
+            const subject  = folderSelect.value;
+            const session  = sessionSelect.value;
+            const metafile = fileSelect.value;
+            const file     = seFileSelect.value;
+            const response = await fetch(`http://${server_ip}:${server_port}/api/update-source-estimate?subject=${encodeURIComponent(subject)}&session=${encodeURIComponent(session)}&metafile=${encodeURIComponent(metafile)}&file=${encodeURIComponent(file)}&timepoint=${encodeURIComponent(current_timepoint)}`);
 
             
             if (!response.ok) {

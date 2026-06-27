@@ -5,6 +5,8 @@ import copy
 from pathlib import Path
 from typing import Dict, List, Any
 
+import re
+
 import mne
 import h5py
 import nibabel as nib
@@ -93,7 +95,9 @@ async def list_subject_source_estimate_files(subject: str = Query(None), session
     if os.path.exists(session_dir) == False:
         return fname_list
     
-    fname_list = [fname for fname in os.listdir(session_dir) if os.path.isfile(os.path.join(session_dir, fname)) and fname.endswith("maxpower-stc.h5")] # only load maxpower-stc.h5 files
+    pattern = "maxpower.*-stc.h5"
+    # fname_list = [fname for fname in os.listdir(session_dir) if os.path.isfile(os.path.join(session_dir, fname)) and fname.endswith("maxpower.*-stc.h5")] # only load maxpower-stc.h5 files
+    fname_list = [fname for fname in os.listdir(session_dir) if os.path.isfile(os.path.join(session_dir, fname)) and re.search(pattern, fname)] # only load maxpower-stc.h5 files
     
     print(fname_list)
     return fname_list
@@ -122,18 +126,20 @@ async def load_subject_file_modes(
 @app.get("/api/load-source-estimate")
 async def load_subject_source_estimate_file(subject         : str             = Query(None),
                                             session         : str             = Query(None),
+                                            metafile       : str             = Query(None),
                                             file            : str             = Query(None),):
     global subjects_loaded_pvf_data
-    load_subject_source_estimate(subject_name=subject, session=session, file_name=file, timepoint=0)
-    sensor_signals = subjects_loaded_pvf_data[subject][session]["source_estimate"][file]['sensor_signals'][:-2, :].T # in the form of time * channels
+    load_subject_source_estimate(subject_name=subject, session=session, meta_file=metafile, file_name=file, timepoint=0)
+    sensor_signals = subjects_loaded_pvf_data[subject][session]["source_estimate"][file]['sensor_signals'][:, :-2] # in the form of channels * times
     return {'sensor_signals': sensor_signals.tolist()}
 
 @app.get("/api/update-source-estimate")
 async def update_subject_source_estimate(subject         : str             = Query(None),
                                               session         : str             = Query(None),
                                               file            : str             = Query(None),
+                                              metafile       : str             = Query(None),
                                               timepoint       : str             = Query(None)):
-    data = load_subject_source_estimate(subject_name=subject, session=session, file_name=file, timepoint=timepoint)    
+    data = load_subject_source_estimate(subject_name=subject, session=session, meta_file=metafile, file_name=file, timepoint=timepoint)    
     return data
 
 @app.get("/api/update-PVF-streamlines")
@@ -530,7 +536,7 @@ def extract_ses_info(input_str, get_all=False):
     # Regular expression：
     # ses- : matching prefix "ses-"
     # \d+ ：matching digits (one or more)
-    pattern = r'ses-\d+'
+    pattern = r'ses-[a-zA-Z0-9]+'
     
     # 查找所有匹配项
     matches = re.findall(pattern, input_str)
@@ -595,9 +601,24 @@ def prepare_brain_mri_volume(mri_T1: str) -> Dict[str, Any]:
 # ------------------------------------------------------
 
 
+def _find_closest_indices(arr1, arr2):
+    """
+    对arr2每个时间点，找到arr1中距离最近点的索引
+    :param arr1: 基准时间数组 (list / np.array)
+    :param arr2: 目标时间数组 (list / np.array)
+    :return: closest_idx: np.ndarray，长度等于arr2，每个元素为对应arr1下标
+    """
+    a1 = np.squeeze(np.asarray(arr1))
+    a2 = np.squeeze(np.asarray(arr2))
+    # 广播计算所有差值绝对值
+    diff_mat = np.abs(a1[None, :] - a2[:, None])
+    # 每行取最小差值对应的索引
+    closest_idx = np.argmin(diff_mat, axis=1)
+    return closest_idx
+
 # ------------------------------------------------------
 # load and prepare source estimate data
-def load_subject_source_estimate(subject_name: str, session: str, file_name: str, timepoint: str):
+def load_subject_source_estimate(subject_name: str, session: str, meta_file: str, file_name: str, timepoint: str):
     global subjects_loaded_pvf_data
 
     # ses_id = extract_ses_info(file_name, get_all=False)
@@ -605,38 +626,60 @@ def load_subject_source_estimate(subject_name: str, session: str, file_name: str
     #     whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_name}/bem/whole_brain_{ses_id}_vol_src.fif"
     # else:
     #     whole_brain_source_space_fname = f"{FS_SUBJECTS_DIR}/{subject_name}/bem/whole_brain_vol_src.fif"
+    times = subjects_loaded_pvf_data[subject_name][session]["meta_files"][meta_file]["times"]
 
     if file_name not in subjects_loaded_pvf_data[subject_name][session]['source_estimate']:
         src_est_fname            = f"{PVF_SUBJECTS_DIR}/{subject_name}/{session}/{file_name}"
         print(f"Loading source estimate: {src_est_fname}")
         src_est = mne.read_source_estimate(fname=src_est_fname)# mne.read_source_estimate(fname=src_est_fname, subject=subject_name)
+        indx = _find_closest_indices(src_est.times, times)
         subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]                   = dict()
-        subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'] = src_est.data
+        subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'] = src_est.data[:, indx]
         subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_vert_no'] = src_est.vertices[0]
-        # subjects_loaded_pvf_data[subject_name]["source_estimate"][file_name]['sensor_signals'] = sensor_signals
-
+        subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_times']   = times                 # src_est.times
 
 
 
     if 'sensor_signals' not in subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name].keys():
-        sensor_signals_file_name = file_name.replace("-stc.h5", ".mat")
-        sensor_signals_fname     = f"{PVF_SUBJECTS_DIR}/{subject_name}/{session}/{sensor_signals_file_name}"
-        print(f"Loading sensor signals from {sensor_signals_fname}")
-        sensor_signal_file       = h5py.File(sensor_signals_fname)
-        if 'sensor_signals' in sensor_signal_file.keys():
-            sensor_signals = np.asarray(sensor_signal_file['sensor_signals'])
+        sensor_signals_file_name = file_name.replace("-stc.h5", ".h5")
+        if os.path.exists(f"{PVF_SUBJECTS_DIR}/{subject_name}/{session}/{sensor_signals_file_name}"):
+            sensor_signals_fname     = f"{PVF_SUBJECTS_DIR}/{subject_name}/{session}/{sensor_signals_file_name}"
         else:
-            sensor_signals = np.asarray(sensor_signal_file['source_data'])
+            sensor_signals_file_name = file_name.replace("-stc.h5", ".mat")
+            sensor_signals_fname     = f"{PVF_SUBJECTS_DIR}/{subject_name}/{session}/{sensor_signals_file_name}"
+
+        print(f"Loading sensor signals from {sensor_signals_fname}")
+        sensor_signal_file = h5py.File(sensor_signals_fname)
+        if 'sensor_signals' in sensor_signal_file.keys():
+            sensor_times     = np.asarray(sensor_signal_file['times'])
+            num_sensor_times = np.squeeze(sensor_times).shape[0]
+            sensor_signals   = np.asarray(sensor_signal_file['sensor_signals'])
+            sensor_signals   = sensor_signals if sensor_signals.shape[1] == num_sensor_times else sensor_signals.T  # channels * times
+            indx             = _find_closest_indices(sensor_times, times)
+            sensor_signals   = sensor_signals[:, indx]
+            sensor_times     = times
+        else:
+            sensor_signals = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals']
+            sensor_times   = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_times']
+
 
         subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['sensor_signals'] = sensor_signals
+        subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['sensor_times']   = sensor_times
+
+
+
+
 
     source_data_time = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'][:, int(timepoint)]
     source_vert_no   = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_vert_no']
     source_positions = subjects_loaded_pvf_data[subject_name][session]['vol_src'][0]['rr'][source_vert_no] * 1000
-    if np.max(source_data_time) < 1e-10:
-        source_data_time = source_data_time * 1e16
-    else:
-        source_data_time = source_data_time * 1000
+    # if np.max(source_data_time) < 1e-10:
+    #     source_data_time = source_data_time * 1e16
+    # elif np.max(source_data_time) < 1 and np.max(source_data_time) > 1e-10:
+    #     source_data_time = source_data_time * 1000
+    # elif np.max(source_data_time) > 1:
+    #     source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 100
+    source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 200
     return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
 # ------------------------------------------------------
 
