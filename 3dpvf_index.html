@@ -47,9 +47,23 @@
 
     <link rel="preload" href="wx/js/brain-loader.js" as="script">
     <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
-    <script src="wx/js/brain-loader.js"></script> 
-    <script src="wx/js/brain-surface-viewer.js"></script>
-    
+    <!-- <script src="wx/js/brain-loader.js"></script>  -->
+    <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
+    <script type="module">
+        // 导入本地文件
+        import { GIFEncoder, quantize, applyPalette } from './assets/js/gifenc/gifenc.js';
+        import pako from './assets/js/pako/pako.min.js';
+
+        // 挂载到全局供外部普通script调用
+        window.GIFTools = {
+            GIFEncoder,
+            quantize,
+            applyPalette,
+            pako
+        };
+    </script>
+
+
     <script>
         tailwind.config = {
             theme: {
@@ -90,6 +104,15 @@
             .panel-gradient {
                 background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
             }
+            .bg-red-600:hover { background-color: #dc2626;
+            }
+            .recording-indicator { animation: pulse 1.5s infinite;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
         }
         .div-disabled {
             filter: grayscale(100%);
@@ -99,6 +122,8 @@
             /* background-color: #f5f5f5 !important; */
         }
     </style>
+
+    
 </head>
 <body class="font-inter bg-dark text-light overflow-hidden">
     <!-- Header -->
@@ -547,16 +572,29 @@
                     </div>
 
                     <div style="display: flex; gap: 10px;">
-                        <button id="prev-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-1 px-4 transition-colors flex items-center justify-center gap-4" onclick="prevTimepoint()">
+                        <button id="prev-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="prevTimepoint()">
                             <i class="fas fa-long-arrow-left"></i>
                             <span>Prev Time</span>
                         </button>
-                        <button id="next-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-1 px-4 transition-colors flex items-center justify-center gap-4" onclick="nextTimepoint()">
+                        <button id="next-time-point" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-4" onclick="nextTimepoint()">
                             <i class="fas fa-long-arrow-right"></i>
                             <span>Next Time</span>
                         </button>
                     </div>
-                    
+                    <div class="flex gap-2 mt-2">
+                        <button id="play-pause" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-play"></i>
+                            <span>Play</span>
+                        </button>
+                        <button id="reset-animation" class="flex-1 bg-white/10 hover:bg-white/20 text-light rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-redo"></i>
+                            <span>Reset</span>
+                        </button>
+                        <button id="export-gif" class="flex-1 bg-accent hover:bg-accent/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-file-export"></i>
+                            <span>Export GIF</span>
+                        </button>
+                    </div>
                     <!-- <div class="flex gap-2">
                         <button id="play-pause" class="flex-1 bg-primary hover:bg-primary/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
                             <i class="fas fa-play"></i>
@@ -619,6 +657,23 @@
         const timeSliderCurrentTime = document.getElementById('time-slider-ct');
         const timeSlider            = document.getElementById('time-slider');
         const timeStat              = document.getElementById('time-stat');
+
+        const playPauseBtn = document.getElementById('play-pause');
+        const resetAnimationBtn = document.getElementById('reset-animation');
+        const exportGifBtn = document.getElementById('export-gif');
+        // const timeSlider = document.getElementById('time-slider');
+        const canvas = document.getElementById('vector-field-canvas'); // 3D渲染画布
+
+        let isPlaying = false;
+        let animationInterval = null;
+        const frameRate = 10;
+        let currentTimeIndex = Number(timeSlider.value);
+        const maxTimeIndex = Number(timeSlider.max);
+
+        // GIF录制全局变量（新版）
+        let isRecording = false;
+        let gifEncoder = null;
+        const gifDelayMs = Math.round(1000 / frameRate);
 
         // brainbrowser viewer
         // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
@@ -3315,6 +3370,156 @@
         //         selectedFolderInfo.classList.add('hidden');
         //     }
         // }
+
+        // 播放/暂停
+        playPauseBtn.addEventListener('click', togglePlayPause);
+        resetAnimationBtn.addEventListener('click', resetAnimation);
+        timeSlider.addEventListener('input', () => {
+            currentTimeIndex = Number(timeSlider.value);
+            updateTimeDisplay();
+            updateVisualizationForTime(currentTimeIndex);
+            if (isPlaying) stopPlayback();
+        });
+
+        // 播放控制函数
+        function togglePlayPause() {
+            if (isPlaying) {
+                stopPlayback();
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
+            } else {
+                startPlayback();
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i><span>Pause</span>';
+            }
+        }
+
+        function startPlayback() {
+            isPlaying = true;
+            animationInterval = setInterval(() => {
+                currentTimeIndex++;
+                if (currentTimeIndex > maxTimeIndex) currentTimeIndex = 0;
+                timeSlider.value = currentTimeIndex;
+                updateTimeDisplay();
+                updateVisualizationForTime(currentTimeIndex);
+            }, 1000 / frameRate);
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            clearInterval(animationInterval);
+        }
+
+        function resetAnimation() {
+            stopPlayback();
+            currentTimeIndex = 0;
+            timeSlider.value = 0;
+            updateTimeDisplay();
+            updateVisualizationForTime(0);
+            playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
+        }
+
+        function updateTimeDisplay() {
+            document.getElementById('time-slider-tmin').textContent = `Time min=${0}`;
+            document.getElementById('time-slider-ct').textContent = `Current Time=${currentTimeIndex}`;
+            document.getElementById('time-slider-tmax').textContent = `Time max=${maxTimeIndex}`;
+            document.getElementById('time-stat').textContent = currentTimeIndex;
+        }
+
+        // ===================== 新版GIF导出逻辑（gifenc） =====================
+        exportGifBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                // 开始录制
+                await startRecordGif();
+                exportGifBtn.innerHTML = '<i class="fas fa-stop"></i><span>Stop & Generate GIF</span>';
+                exportGifBtn.classList.replace('bg-accent', 'bg-red-600');
+            } else {
+                // 结束录制并下载
+                await finishRecordAndDownload();
+                exportGifBtn.innerHTML = '<i class="fas fa-file-export"></i><span>Export GIF</span>';
+                exportGifBtn.classList.replace('bg-red-600', 'bg-accent');
+            }
+        });
+
+        /** 初始化GIF编码器，开始录制 */
+        async function startRecordGif() {
+            isRecording = true;
+            // 未播放则自动播放
+            if (!isPlaying) togglePlayPause();
+
+            const { GIFEncoder } = window.GIFTools;
+            const width = canvas.width;
+            const height = canvas.height;
+            // 初始化编码器，开启流式写入
+            gifEncoder = new GIFEncoder(width, height);
+            gifEncoder.start();
+
+            // 循环捕获帧
+            recordFrameLoop();
+        }
+
+        /** 循环捕获每一帧画布像素 */
+        function recordFrameLoop() {
+            if (!isRecording || !gifEncoder) return;
+
+            const { quantize, applyPalette } = window.GIFTools;
+            // 读取画布RGBA像素
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = new Uint32Array(imageData.data.buffer);
+
+            // 量化256色调色板（GIF上限）
+            const palette = quantize(pixels, 256);
+            const indexed = applyPalette(pixels, palette);
+
+            // 添加帧到GIF
+            gifEncoder.addFrame(indexed, {
+                palette,
+                delay: gifDelayMs
+            });
+
+            // 下一帧捕获
+            setTimeout(recordFrameLoop, gifDelayMs);
+        }
+
+        /** 结束录制，生成Blob并下载 */
+        async function finishRecordAndDownload() {
+            isRecording = false;
+            if (isPlaying) togglePlayPause();
+            if (!gifEncoder) return;
+
+            const { pako } = window.GIFTools;
+            loadingIndicator.style.display = 'flex';
+            loadingIndicator.querySelector('p').textContent = '正在生成GIF...';
+
+            // 结束编码，获取原始二进制buffer
+            gifEncoder.finish();
+            const buffer = gifEncoder.bytes();
+            // 压缩（可选，大幅减小文件体积）
+            const compressed = pako.deflate(buffer);
+            const blob = new Blob([compressed], { type: 'image/gif' });
+
+            // 下载文件
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `timeline_animation_${Date.now()}.gif`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            // 释放资源
+            gifEncoder = null;
+            loadingIndicator.style.display = 'none';
+        }
+
+        // 外部对接：你的3D场景更新函数（保持原有逻辑不变）
+        function updateVisualizationForTime(timeIndex) {
+            // 替换为你项目内Three.js/3D渲染更新逻辑
+            // example:
+            // window.scene.updateFrame(timeIndex);
+            // window.renderer.render(window.scene, window.camera);
+        }
+
+        // 初始化页面时间显示
+        updateTimeDisplay();
 
 
     </script>
