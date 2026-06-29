@@ -19,7 +19,7 @@ Freesurfer subjects
 
 # To do list - PVF publications
  - Visualise singular points and extents.
- - generate animations of PVF, source estimates and streamlines and save as GIF.
+ - play function PVF, source estimates and streamlines and export as GIF file.
  - Publication-level figure exports (publication-level fine tuning of colarmaps, vectors and view angles).
 
 # To do list - FDRI project stream 4

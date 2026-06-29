@@ -47,12 +47,12 @@
 
     <link rel="preload" href="wx/js/brain-loader.js" as="script">
     <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
-    <!-- <script src="wx/js/brain-loader.js"></script>  -->
-    <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
+    <script src="wx/js/brain-loader.js"></script> 
+    <script src="wx/js/brain-surface-viewer.js"></script>
     <script type="module">
         // 导入本地文件
-        import { GIFEncoder, quantize, applyPalette } from './assets/js/gifenc/gifenc.js';
-        import pako from './assets/js/pako/pako.min.js';
+        import { GIFEncoder, quantize, applyPalette } from './assets/js/gifenc/gifenc.esm.js';
+        import pako from './assets/js/pako/pako.esm.mjs';
 
         // 挂载到全局供外部普通script调用
         window.GIFTools = {
