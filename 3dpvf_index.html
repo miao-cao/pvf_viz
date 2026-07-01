@@ -611,14 +611,15 @@
 
         let isPlaying = false;
         let animationInterval = null;
-        const frameRate = 0.6;
+        const frameRate = 0.5;
         let currentTimeIndex = Number(timeSlider.value);
         const maxTimeIndex = Number(timeSlider.max);
 
         // GIF录制全局变量（新版）
         let isRecording = false;
         let gifEncoder = null;
-        const gifDelayMs = Math.round(1000 / frameRate);
+        let gifFrameRate = 0.5
+        const gifDelayMs = Math.round(1000 / gifFrameRate);
 
         // brainbrowser viewer
         // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
