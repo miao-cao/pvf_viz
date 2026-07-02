@@ -16,6 +16,7 @@
     <script src="assets/js/three/loaders/OBJLoader.js"></script>
     <script src="assets/js/three/loaders/MTLLoader.js"></script>
     <script src="assets/js/three/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
     
     <link rel="preload" href="assets/js/chart/chart.umd.min.js" as="script">
     <script src="assets/js/chart/chart.umd.min.js"></script>
@@ -47,7 +48,7 @@
 
     <link rel="preload" href="wx/js/brain-loader.js" as="script">
     <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
-    <script src="wx/js/brain-loader.js"></script> 
+    <script src="wx/js/brain-loader.js"></script>
     <script src="wx/js/brain-surface-viewer.js"></script>
     <script type="module">
         // 导入本地文件
@@ -545,9 +546,9 @@
                             <i class="fas fa-redo"></i>
                             <span>Reset</span>
                         </button>
-                        <button id="export-gif" class="flex-1 bg-accent hover:bg-accent/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
+                        <button id="export-video" class="flex-1 bg-accent hover:bg-accent/80 text-white rounded-lg py-2 px-4 transition-colors flex items-center justify-center gap-2">
                             <i class="fas fa-file-export"></i>
-                            <span>Export GIF</span>
+                            <span>Export Video</span>
                         </button>
                     </div>
                 </div>
@@ -605,7 +606,7 @@
 
         const playPauseBtn = document.getElementById('play-pause');
         const resetAnimationBtn = document.getElementById('reset-animation');
-        const exportGifBtn = document.getElementById('export-gif');
+        const exportVideoBtn = document.getElementById('export-video');
         // const timeSlider = document.getElementById('time-slider');
         const canvas = document.getElementById('vector-field-canvas'); // 3D渲染画布
 
@@ -614,12 +615,6 @@
         const frameRate = 0.5;
         let currentTimeIndex = Number(timeSlider.value);
         const maxTimeIndex = Number(timeSlider.max);
-
-        // GIF录制全局变量（新版）
-        let isRecording = false;
-        let gifEncoder = null;
-        let gifFrameRate = 0.5
-        const gifDelayMs = Math.round(1000 / gifFrameRate);
 
         // brainbrowser viewer
         // BrainBrowser.config.set("worker_dir", "build/brainbrowser-2.5.2/workers");
@@ -695,6 +690,22 @@
         let gridHelper;
         let animationId;
         let sensor_signal_chart;
+
+
+        // GIF录制全局变量（新版）
+        // let isRecording = false;
+        // let gifEncoder = null;
+        // let gifFrameRate = 0.5
+        // const gifDelayMs = Math.round(1000 / gifFrameRate);
+
+        // GIF录制全局变量（修复版）
+        let   isRecording    = false;
+        let   gifEncoder     = null;
+        let   gifFrameRate   = 10; // 提高录制帧率，画面更顺滑
+        const gifDelayMs     = Math.round(1000 / gifFrameRate);
+        let   recordTimer    = null; // 新增录制定时器句柄，用于销毁
+        let   renderSyncLock = false; // 渲染同步锁，防止重复捕获
+        const GIF_DELAY = 40;
 
         // const BufferGeometryUtils = require('three/addons/utils/BufferGeometryUtils.js');
         
@@ -3342,10 +3353,6 @@
             isPlaying = true;
             animationInterval = setInterval(() => {
                 nextTimepoint()
-                // currentTimeIndex++;
-                // if (currentTimeIndex > maxTimeIndex) currentTimeIndex = 0;
-                // timeSlider.value = currentTimeIndex;
-                // updateVisualizationForTime(currentTimeIndex);
             }, 1000 / frameRate);
         }
 
@@ -3354,148 +3361,87 @@
             clearInterval(animationInterval);
         }
 
-        function resetAnimation() {
-            stopPlayback();
-            current_timepoint = t_min;
-            const times_currenttime = PVF_times[current_timepoint];
-            timeSlider.value  = times_currenttime;
+        // 视频录制全局变量
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let videoStream = null;
 
-            playPauseBtn.innerHTML = '<i class="fas fa-play"></i><span>Play</span>';
-        }
-
-        // ===================== 新版GIF导出逻辑（gifenc） =====================
-        exportGifBtn.addEventListener('click', async () => {
+        // 导出MP4视频按钮
+        exportVideoBtn.addEventListener('click', async () => {
             if (!isRecording) {
-                // 开始录制
-                await startRecordGif();
-                exportGifBtn.innerHTML = '<i class="fas fa-stop"></i><span>Stop & Generate GIF</span>';
-                exportGifBtn.classList.replace('bg-accent', 'bg-red-600');
+                togglePlayPause();
+                startRecordVideo();
+                exportVideoBtn.innerHTML = '<i class="fas fa-stop"></i><span>Stop & Download MP4</span>';
+                exportVideoBtn.classList.replace('bg-accent', 'bg-red-600');
             } else {
-                // 结束录制并下载
-                await finishRecordAndDownload();
-                exportGifBtn.innerHTML = '<i class="fas fa-file-export"></i><span>Export GIF</span>';
-                exportGifBtn.classList.replace('bg-red-600', 'bg-accent');
+                stopRecordVideo();
+                exportVideoBtn.innerHTML = '<i class="fas fa-file-video"></i><span>Export MP4 Video</span>';
+                exportVideoBtn.classList.replace('bg-red-600', 'bg-accent');
             }
         });
 
-        /** 初始化GIF编码器，开始录制 */
-        async function startRecordGif() {
-            isRecording = true;
-            // 未播放则自动播放
-            if (!isPlaying) togglePlayPause();
-
-            const { GIFEncoder } = window.GIFTools;
-            const width = canvas.width;
-            const height = canvas.height;
-            // 初始化编码器，开启流式写入
-            gifEncoder = new GIFEncoder(width, height);
-            gifEncoder.start();
-
-            // 循环捕获帧
-            recordFrameLoop();
-        }
-
-        // /** 循环捕获每一帧画布像素 */
-        // function recordFrameLoop() {
-        //     if (!isRecording || !gifEncoder) return;
-
-        //     const { quantize, applyPalette } = window.GIFTools;
-        //     // 读取画布RGBA像素
-        //     const ctx = canvas.getContext('2d');
-        //     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        //     const pixels = new Uint32Array(imageData.data.buffer);
-
-        //     // 量化256色调色板（GIF上限）
-        //     const palette = quantize(pixels, 256);
-        //     const indexed = applyPalette(pixels, palette);
-
-        //     // 添加帧到GIF
-        //     gifEncoder.addFrame(indexed, {
-        //         palette,
-        //         delay: gifDelayMs
-        //     });
-
-        //     // 下一帧捕获
-        //     setTimeout(recordFrameLoop, gifDelayMs);
+        // 启动视频录制
+        function startRecordVideo() {
+            recordedChunks = [];
+            const chartCanvas = document.querySelector('#sensor-signal-plot canvas');
+            const mainCanvas = document.getElementById('vector-field-canvas');
             
-        // }
+            // 创建超大合成画布
+            const compositeCanvas = document.createElement('canvas');
+            compositeCanvas.width = mainCanvas.width;
+            compositeCanvas.height = mainCanvas.height + 300;
+            const ctx = compositeCanvas.getContext('2d');
+            // 每帧循环绘制两张画布
+            function compositeLoop() {
+                ctx.clearRect(0,0,compositeCanvas.width,compositeCanvas.height);
+                if(chartCanvas) ctx.drawImage(chartCanvas, 600, 0);
+                ctx.drawImage(mainCanvas, 0, chartCanvas.height);
+                if(chartCanvas_SRCBar) ctx.drawImage(chartCanvas_SRCBar,0, mainCanvas.height);
+                if(chartCanvas_STRLNEBar) ctx.drawImage(chartCanvas_STRLNEBar, chartCanvas_SRCBar.length, mainCanvas.height);
+                if(chartCanvas_VFBar) ctx.drawImage(chartCanvas_VFBar, chartCanvas_SRCBar.length + chartCanvas_STRLNEBar.length, mainCanvas.height);
+                requestAnimationFrame(compositeLoop);
+            }
+            compositeLoop();
+            videoStream = compositeCanvas.captureStream(30);
+            try {
+                mediaRecorder = new MediaRecorder(videoStream, {
+                    mimeType: 'video/mp4; codecs="avc1.424028"'
+                });
+            } catch (e) {
+                // 降级兼容
+                mediaRecorder = new MediaRecorder(videoStream);
+            }
 
-        // 替换原来的 recordFrameLoop 函数
-        async function recordFrameLoop() {
-            if (!isRecording || !gifEncoder) return;
-            const canvas = document.getElementById('vector-field-canvas');
-            const ctx2d  = canvas.getContext('2d');
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size) recordedChunks.push(e.data);
+            };
 
-            // 1. 强制重新渲染3D场景，保证画面刷新
-            // updateVisualizationForTime(currentTimeIndex);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `PVF_Flow_${Date.now()}.mp4`;
+                document.body.append(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                showError("MP4视频导出完成");
+            };
 
-            // 2. WebGL画布异步转图片，解决空白像素
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-            const img = new Image();
-            await new Promise((res, rej) => {
-                img.onload  = res;
-                img.onerror = rej;
-                img.src     = URL.createObjectURL(blob);
-            });
-
-            // 3. 绘制到离屏画布读取像素
-            const offscreen        = document.createElement('canvas');
-                  offscreen.width  = canvas.width;
-                  offscreen.height = canvas.height;
-            const offCtx           = offscreen.getContext('2d');
-            offCtx.drawImage(img, 0, 0);
-            const imageData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
-            const pixels    = new Uint32Array(imageData.data.buffer);
-
-            // 4. 量化调色板写入GIF
-            const { quantize, applyPalette } = window.GIFTools;
-            const palette = quantize(pixels, 256);
-            const indexed = applyPalette(pixels, palette);
-            gifEncoder.addFrame(indexed, { palette, delay: gifDelayMs });
-
-            // 释放临时资源
-            URL.revokeObjectURL(img.src);
-            setTimeout(recordFrameLoop, gifDelayMs);
+            mediaRecorder.start();
+            isRecording = true;
+            showError("正在录制动画视频，播放时间轴生成画面");
         }
 
-        /** 结束录制，生成Blob并下载 */
-        async function finishRecordAndDownload() {
+        // 停止录制
+        function stopRecordVideo() {
+            if (!mediaRecorder) return;
+            mediaRecorder.stop();
+            videoStream.getTracks().forEach(t => t.stop());
             isRecording = false;
-            if (isPlaying) togglePlayPause();
-            if (!gifEncoder) return;
-
-            const { pako } = window.GIFTools;
-            loadingIndicator.style.display = 'flex';
-            loadingIndicator.querySelector('p').textContent = '正在生成GIF...';
-
-            // 结束编码，获取原始二进制buffer
-            gifEncoder.finish();
-            const buffer = gifEncoder.bytes();
-            // 压缩（可选，大幅减小文件体积）
-            const compressed = pako.deflate(buffer);
-            const blob = new Blob([compressed], { type: 'image/gif' });
-
-            // 下载文件
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `timeline_animation_${Date.now()}.gif`;
-            a.click();
-            URL.revokeObjectURL(url);
-
-            // 释放资源
-            gifEncoder = null;
-            loadingIndicator.style.display = 'none';
+            togglePlayPause();
         }
-
-        // 外部对接：你的3D场景更新函数（保持原有逻辑不变）
-        // function updateVisualizationForTime() {
-        //     // 替换为你项目内Three.js/3D渲染更新逻辑
-        //     // example:
-        //     // window.scene.updateFrame(timeIndex);
-        //     // window.renderer.render(window.scene, window.camera);
-        //     nextTimepoint()
-        // }
 
 
     </script>
