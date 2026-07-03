@@ -603,7 +603,7 @@ def prepare_brain_mri_volume(mri_T1: str) -> Dict[str, Any]:
 
 # ------------------------------------------------------
 # prepare singular point and extent
-def prepare_singular_point_extent(pattern_data: str) -> Dict[str, Any]:
+def prepare_singular_point_extent(pattern_data: Dict, subject_name: str, session: str) -> Dict[str, Any]:
     """
         From volume_data, use volume voxel index (i,j,k) and affine matrix (4 by 4)
         to convert to Freesurfer coordinates (x,y,z).
@@ -620,11 +620,18 @@ def prepare_singular_point_extent(pattern_data: str) -> Dict[str, Any]:
             'positions' is a list of Freesurfer coordinates (x,y,z) for each non-zero voxel.
             'values' is a list of corresponding voxel grey values.
     """
-    pattern_coord_data = dict()
-    pattern_coord_data['positions'] = []
-    pattern_coord_data['values']    = []
+    global subjects_loaded_pvf_data
 
-    return pattern_coord_data
+    if len(pattern_data) == 0:
+        return []
+    vol_src = subjects_loaded_pvf_data[subject_name][session]['vol_src']
+    for singular_point in pattern_data:
+        vert_ind_list = singular_point['vert_idx_list']
+        singular_point['vert_positions'] = []
+        for vert_ind in vert_ind_list:
+            if vol_src is not None:
+                singular_point['vert_positions'].append([(vol_src[0]['rr'][vert_ind] * 1000).tolist()])
+    return pattern_data
 # ------------------------------------------------------
 
 def _find_closest_indices(arr1, arr2):
@@ -718,10 +725,15 @@ def resp_pvf_json(subject_name: str, session: str, file_name: str, timepoint: in
     
     global subjects_loaded_pvf_data
 
-    file_pvf_data = subjects_loaded_pvf_data[subject_name][session]['meta_files'][file_name]
-    timepoint_int = int(timepoint)
-    pvf_data      = process_pvf_time_window(subject_name=subject_name, session=session, file_name=file_name, pvf_time_window_id=timepoint_int)
-    streamlines   = process_streamlines_time_window(subject_name=subject_name, session=session, file_name=file_name, pvf_time_window_id=timepoint_int)
+    file_pvf_data    = subjects_loaded_pvf_data[subject_name][session]['meta_files'][file_name]
+    timepoint_int    = int(timepoint)
+    pvf_data         = process_pvf_time_window(subject_name=subject_name, session=session, file_name=file_name, pvf_time_window_id=timepoint_int)
+    streamlines      = process_streamlines_time_window(
+                                                    subject_name       = subject_name,
+                                                    session            = session,
+                                                    file_name          = file_name,
+                                                    pvf_time_window_id = timepoint_int)
+    pvf_pattern_data = prepare_singular_point_extent(file_pvf_data["pattern_data"].get(str(timepoint_int), []), subject_name=subject_name, session=session)
 
     return {
         "subject_ID"         : file_pvf_data["subject_ID"],
@@ -729,8 +741,8 @@ def resp_pvf_json(subject_name: str, session: str, file_name: str, timepoint: in
         "pvf_positions"      : pvf_data["positions"].tolist(),
         "pvf_directions"     : pvf_data["directions"].tolist(),
         "times"              : file_pvf_data["times"][:-2],  # here, because time stencil, last two time points are not computed
-        "condA"              : sum(file_pvf_data["condA"][str(timepoint)]) / len(file_pvf_data["condA"][str(timepoint)]),
-        "patterns"           : file_pvf_data["pattern_data"].get(str(timepoint), []),
+        "condA"              : sum(file_pvf_data["condA"][str(timepoint_int)]) / len(file_pvf_data["condA"][str(timepoint_int)]),
+        "patterns"           : pvf_pattern_data,
         "mode_info"          : file_pvf_data['mode_info'],
         "streamlines"        : streamlines,
         "PVF_dimension"      : file_pvf_data["PVF_dimension"],
