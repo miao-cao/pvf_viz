@@ -683,6 +683,7 @@
         let modeVectorField  = [];
         let vectorObjects    = [];
         let volumeObjects    = [];
+        let singularityPoints = [];
         let sMRIVolumePoints = [];
         let isAnimating      = false;
         let lastTime         = 0;
@@ -1292,6 +1293,146 @@
             }
         }
 
+
+        /**
+         * 渲染三维点集，透明度随到基准点距离变化（越远越不透明，最大0.7）
+         * 复用原renderActivationPoints的Three.js Shader粒子渲染体系
+         * @param {Array<[number,number,number]>} positions 三维坐标数组 [[x,y,z],...]
+         * @param {string} fixedHexColor 固定颜色十六进制 #xxxxxx
+         * @param {[number,number,number]} centerPoint 距离计算基准中心点 [cx,cy,cz]
+         * @param {number} pointSize 基础粒子尺寸，默认1
+         * @returns {THREE.Points} 粒子对象，可加入场景
+         */
+        function renderDistanceFadePoints(positions, fixedHexColor, centerPoint, pointSize = 1) {
+            console.log(`Rendering ${positions.length} points with distance-based transparency...`);
+            // 内置十六进制转rgb工具（复用原函数依赖）
+            function hexToRgb(hex) {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return { r: r / 255, g: g / 255, b: b / 255 };
+            }
+
+            // 1. 基础数据容器
+            const volume_positions = [];
+            const colors = [];
+            const sizes = [];
+            const alphas = [];
+
+            // 解析固定基础色（全局统一，所有点共用）
+            const baseRgb = hexToRgb(fixedHexColor);
+            const [cx, cy, cz] = centerPoint;
+            
+            // 第一步：预计算所有点到基准中心的欧式距离，获取距离极值用于透明度映射
+            const distList = [];
+            for (let i = 0; i < positions.length; i++) {
+                const [x, y, z] = positions[i];
+                // console.log(`Point ${i}: Position=(${x},${y},${z})`);
+                const dx = x - cx;
+                const dy = y - cy;
+                const dz = z - cz;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                distList.push(dist);
+            }
+            const minDist = Math.min(...distList);
+            const maxDist = Math.max(...distList);
+            const distRange = maxDist - minDist || 1; // 防止全部点重合除0
+            // console.log(distList)
+            // 2. 遍历点位填充Buffer数据
+            for (let i = 0; i < positions.length; i++) {
+                const [x, y, z] = positions[i];
+                volume_positions.push(x, y, z);
+
+                // 所有点使用完全相同的固定颜色
+                colors.push(baseRgb.r, baseRgb.g, baseRgb.b);
+
+                // 距离映射透明度：距离越远 alpha 越大，上限0.7
+                const dist = distList[i];
+                const distNormalized = (dist - minDist) / distRange;
+                const dynamicAlpha = (1 - distNormalized) * 0.2;
+                alphas.push(dynamicAlpha);
+
+                // 沿用原函数尺寸计算逻辑（可按需修改）
+                const size = 0.5 + 2.5 * pointSize;
+                sizes.push(size);
+            }
+
+            // 3. 创建BufferGeometry，绑定顶点属性（与原函数完全一致）
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(volume_positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+            geometry.setAttribute('alpha', new THREE.Float32BufferAttribute(alphas, 1));
+
+            // 圆形粒子Base64贴图（复制原函数，无需额外资源）
+            const discBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAAZiS0dEAAAAAAAA+UO7fwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sHDgwCEMBJZu0AAAAdaVRYdENvbW1lbnQAAAAAAENyZWF0ZWQgd2l0aCBHSU1QZC5lBwAABM5JREFUWMO1V0tPG2cUPZ4Hxh6DazIOrjFNqJs0FIMqWFgWQkatsmvVbtggKlSVRVf5AWz4AWz4AUSKEChll19QJYSXkECuhFxsHjEhxCYm+DWGMZ5HF72DJq4bAzFXurI0M/I5997v3u9cC65vTJVn2lX/xHINQOYSBLTLEuIuCWw4Z3IGAEvf6ASmVHjNzHCXBG4A0AjACsAOwEbO0nsFQBnAGYASAIl+ZRMR7SolMEdsByD09fV5R0ZGgg8ePPjW5/N1iqLYpuu6RZblciKR2I9Go69evnwZnZ+fjwI4IS8AKBIRzeQfJWCANwKwh0KhtrGxsYehUOin1tbW+zzP23ietzY2NnIAoGmaLsuyUiqVyvl8XtrY2NiamZn589mzZxsAUgCOAeQAnFI2tI+VxIjaAeDzoaGh7xYWFuZOTk6OZVk+12uYqqq6JEnn0Wg0OT4+/geAXwGEAdwDIFJQXC1wO4DWR48e/RCPxxclSSroVzRFUbSDg4P848ePFwH8DuAhkWih83TRQWxFOXgAwvDwcOfo6OhvXV1d39tsNtuVBwTDWBwOh1UUxVsMw1hXVlbSdCgNV43uYSvrHg6H24aHh38eHBz85TrgF9FYLHA4HLzH43FvbW2d7u/vG+dANp8FpqIlbd3d3V8Fg8EfBUFw4BONZVmL3+9vHhkZCQL4AoAHgJPK8G+yzC0XDofdoVAo5PP5vkadTBAEtr+/39ff3x8gAp/RPOEqx2qjx+NpvXv3bk9DQ0NDvQgwDIOWlhZrMBj8kgi0UJdxRgYMArzL5XJ7vd57qLPZ7Xamp6fnNgBXtQxcjFuHw+Hyer3t9SYgCAITCAScAJoBNNEY/08GOFVVrfVMv7kMNDntFD1vjIAPrlRN0xjckOm6biFQ3jwNPwDMZrOnqVTqfb3Bi8Wivru7W/VCYkwPlKOjo0IikXh7EwQikYgE4Nw0CfXKDCipVCoTj8df3QABbW1tLUc6oUgkFPMkVACUNjc337148eKvw8PDbJ2jP1taWkoCyNDVXDSECmNSK4qiKNLq6urW8+fPI/UicHx8rD59+jSVy+WOAKSJhKENwFItLtoxk8mwsixzHR0dHe3t7c5PAU+n09rs7OzJkydPYqVSaQfANoDXALIk31S2smU1TWMPDg7K5XKZ7+3t9TudTut1U7+wsFCcmJiIpdPpbQBxADsAknQWymYCOukBHYCuKApisdhpMpnURFEU79y503TVyKenpzOTk5M7e3t7MQKPV0Zv1gNm+awB0MvlshqLxfLb29uyJElWURSbXC4XXyvqxcXFs6mpqeTc3Nzu3t7e3wQcA7BPZ8Cov1pNlJplmQtAG8MwHV6v95tAINA5MDBwPxAIuLu6upr8fr/VAN3c3JQjkcjZ+vp6fnl5+d2bN29SuVzuNYAEpf01CdRChUL+X1VskHACuA3Ay3Fcu9vt7nA6nZ7m5uYWQRCaNE3jVVW15PP580KhIGUymWw2m00DOAJwSP4WwPtq4LX2Ao6USxNlQyS/RcQcdLGwlNIz6vEMAaZpNzCk2Pll94LK/cDYimxERiBwG10sxjgvEZBE0UpE6vxj+0Ct5bTaXthgEhRmja8QWNkkPGsuIpfdjpkK+cZUWTC0KredVmtD/gdlSl6EG4AMvQAAAABJRU5ErkJggg=='
+
+            // 4. ShaderMaterial 完全复用原着色器代码（无改动）
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    pointTexture: { value: new THREE.TextureLoader().load(discBase64) },
+                    brightness: { value: 0.1 }
+                },
+                vertexShader: `
+                    attribute float size;
+                    attribute float alpha;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    void main() {
+                        vColor = color;
+                        vAlpha = alpha;
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = size * (100.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D pointTexture;
+                    uniform float brightness;
+                    varying vec3 vColor;
+                    varying float vAlpha;
+                    void main() {
+                        gl_FragColor = vec4(vColor, vAlpha);
+                        gl_FragColor = gl_FragColor * texture2D(pointTexture, gl_PointCoord);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            // 5. 创建粒子并返回
+            const points = new THREE.Points(geometry, material);
+            // scene.add(points);
+            return points;
+        }
+
+
+        function clearSingularities() {
+            let activation_container = document.getElementById('activation-colorbar-container');
+            activation_container.style.visibility = "hidden";
+
+            if (!singularityPoints) return;
+
+            // 1. 从场景中移除对象
+            scene.remove(singularityPoints);
+
+            // 2. 释放几何体内存（关键：避免内存泄漏）
+            if (singularityPoints.geometry) {
+                singularityPoints.geometry.dispose();
+            }
+
+            // 3. 释放材质内存
+            if (singularityPoints.material) {
+                singularityPoints.material.dispose();
+            }
+
+            // 4. 清空引用（帮助JS垃圾回收）
+            singularityPoints = null;
+            renderer.clear();
+        }
+
         // Function to create/update singularities
         function createSingularities() {
             present_singluar_points = true
@@ -1302,64 +1443,34 @@
             timeControl.style.visibility = "visible"
             timeControl.classList.remove("div-disabled");
             // Clear existing singularities
-            while(singularitiesGroup.children.length > 0){ 
-                singularitiesGroup.remove(singularitiesGroup.children[0]); 
-            }
+            // while(singularitiesGroup.children.length > 0){ 
+            //     singularitiesGroup.remove(singularitiesGroup.children[0]); 
+            // }
+            clearSingularities();
 
             if (!PVF_pattern_data || PVF_pattern_data.length === 0) {
                 return;
             }
 
-
+            
             PVF_pattern_data.forEach(singularity => {
                 const type = singularity.type;
                 const coord = singularity.coordinate; // [x, y, z] grid indices
                 const extent = singularity.spatial_extent;
+                const vert_pos = singularity.vert_positions; // [x, y, z] in world coordinates
                 
                 // Determine color
-                const color = singularityColors[type] || singularityColors["default"];
+                color = singularityColors[type] || singularityColors["default"];
+                color = '#' + color.toString(16).padStart(6, '0'); // Convert to hex string for Three.js
                 
-                // Determine scale based on spatial_extent and user setting
-                // extent represents the radius in grid units
-                // const radius = extent * settings.singularityScale; 
-                const radius = extent * 5; 
-
-                // Create a group for the singularity visual components
-                const group = new THREE.Group();
-                group.position.set(
-                    coord[0], 
-                    coord[1], 
-                    coord[2]
-                );
-
-
-                const geometry = new THREE.SphereGeometry(radius, 32, 32);
-                const material = new THREE.MeshPhongMaterial({ 
-                    color: color,
-                    emissive: color,
-                    emissiveIntensity: 0.2,
-                    transparent: true,
-                    opacity: 0.4,
-                    shininess: 100,
-                    depthWrite: false
-                });
-                const sphere = new THREE.Mesh(geometry, material);
-                group.add(sphere);
-
-                const coreGeo = new THREE.SphereGeometry(radius * 0.25, 16, 16); 
-                const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff }); 
-                const core = new THREE.Mesh(coreGeo, coreMat);
-                group.add(core);
-
-
-                const wireGeo = new THREE.WireframeGeometry(geometry);
-                const wireMat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.3 });
-                const wireframe = new THREE.LineSegments(wireGeo, wireMat);
-
-                wireframe.scale.set(1.02, 1.02, 1.02);
-                group.add(wireframe);
-
-                singularitiesGroup.add(group);
+                console.log(coord);
+                singularityPoints = renderDistanceFadePoints(vert_pos, color, coord, 100);
+                if (singularityPoints) {
+                    scene.add(singularityPoints);
+                }
+                controls.update(); // 更新控制器
+                renderer.render(scene, camera);
+                // singularitiesGroup.add(group);
             });
             
             showError(`Loaded ${PVF_pattern_data.length} singularities`);
@@ -3123,7 +3234,7 @@
 
             // 4. 创建粒子系统并添加到场景
             const points = new THREE.Points(geometry, material);
-            scene.add(points);
+            // scene.add(points);
             return points;
         }
 

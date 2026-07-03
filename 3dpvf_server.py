@@ -630,7 +630,7 @@ def prepare_singular_point_extent(pattern_data: Dict, subject_name: str, session
         singular_point['vert_positions'] = []
         for vert_ind in vert_ind_list:
             if vol_src is not None:
-                singular_point['vert_positions'].append([(vol_src[0]['rr'][vert_ind] * 1000).tolist()])
+                singular_point['vert_positions'].append((vol_src[0]['rr'][vert_ind] * 1000).tolist())
     return pattern_data
 # ------------------------------------------------------
 
