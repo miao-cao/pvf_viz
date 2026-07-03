@@ -601,6 +601,32 @@ def prepare_brain_mri_volume(mri_T1: str) -> Dict[str, Any]:
 # ------------------------------------------------------
 
 
+# ------------------------------------------------------
+# prepare singular point and extent
+def prepare_singular_point_extent(pattern_data: str) -> Dict[str, Any]:
+    """
+        From volume_data, use volume voxel index (i,j,k) and affine matrix (4 by 4)
+        to convert to Freesurfer coordinates (x,y,z).
+    
+    Parameters:
+        volume_data: 
+            Numpy.ndarray, by default, 256 by 256 by 256. Array contains volume voxel grey values.
+        affine: 
+            4x4 affine matrix
+    
+    Returns:
+        dict:
+            A dictionary contains 'positions' and 'values' keys.
+            'positions' is a list of Freesurfer coordinates (x,y,z) for each non-zero voxel.
+            'values' is a list of corresponding voxel grey values.
+    """
+    pattern_coord_data = dict()
+    pattern_coord_data['positions'] = []
+    pattern_coord_data['values']    = []
+
+    return pattern_coord_data
+# ------------------------------------------------------
+
 def _find_closest_indices(arr1, arr2):
     """
     对arr2每个时间点，找到arr1中距离最近点的索引
