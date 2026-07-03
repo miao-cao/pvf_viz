@@ -642,7 +642,6 @@
         let singularitiesGroup      = new THREE.Group();    // Group for singularities
         let present_PVF             = false;
         let present_streamlines     = false;
-        let present_singluar_points = false;
         let minStreamlinePointNum   = 2
         let maxStreamlinePointNum   = 15
 
@@ -822,7 +821,6 @@
             brainLoader = new BrainLoader(scene);
             
             // Add singularity group to scene
-            scene.add(singularitiesGroup);
 
             // Populate Legend
             createLegend();
@@ -1039,7 +1037,11 @@
             // Singularity Settings
             document.getElementById('show-singularities').addEventListener('change', (e) => {
                 settings.showSingularities = e.target.checked;
-                singularitiesGroup.visible = settings.showSingularities;
+                if (settings.showSingularities) {
+                    createSingularities(); // Draw singularities if the checkbox is checked
+                } else {
+                    clearSingularities(); // Remove singularities if the checkbox is unchecked
+                }
             });
 
             document.getElementById('singularity-scale').addEventListener('input', (e) => {
@@ -1061,6 +1063,11 @@
                 // createSingularities();
                 if (present_streamlines == true){
                     createStreamlines();
+                    if (settings.showSingularities) {
+                        createSingularities(); // Redraw singularities if the checkbox is checked
+                    }else{
+                        clearSingularities(); // Remove singularities if the checkbox is unchecked
+                    }
                 }else{
                     removeStreamlines();
                 }
@@ -1349,13 +1356,20 @@
                 // 距离映射透明度：距离越远 alpha 越大，上限0.7
                 const dist = distList[i];
                 const distNormalized = (dist - minDist) / distRange;
-                const dynamicAlpha = (1 - distNormalized) * 0.2;
+                const dynamicAlpha = (1 - distNormalized) * 0.1;
                 alphas.push(dynamicAlpha);
 
                 // 沿用原函数尺寸计算逻辑（可按需修改）
                 const size = 0.5 + 2.5 * pointSize;
                 sizes.push(size);
             }
+
+            // ========== 新增：渲染基准中心点，同色、完全不透明(alpha固定0.7) ==========
+            volume_positions.push(cx, cy, cz);
+            colors.push(baseRgb.r, baseRgb.g, baseRgb.b);
+            alphas.push(0.7); // 中心点强制最大透明度，完全不透明
+            const centerPointSize = 3 * pointSize;
+            sizes.push(centerPointSize);
 
             // 3. 创建BufferGeometry，绑定顶点属性（与原函数完全一致）
             const geometry = new THREE.BufferGeometry();
@@ -1404,54 +1418,63 @@
 
             // 5. 创建粒子并返回
             const points = new THREE.Points(geometry, material);
-            // scene.add(points);
             return points;
         }
 
 
         function clearSingularities() {
-            let activation_container = document.getElementById('activation-colorbar-container');
-            activation_container.style.visibility = "hidden";
 
-            if (!singularityPoints) return;
+            if (!singularitiesGroup) return;
 
             // 1. 从场景中移除对象
-            scene.remove(singularityPoints);
 
-            // 2. 释放几何体内存（关键：避免内存泄漏）
-            if (singularityPoints.geometry) {
-                singularityPoints.geometry.dispose();
-            }
+            if (singularitiesGroup) {
+                singularitiesGroup.traverse((obj) => {
+                    // 释放几何体
+                    if (obj.geometry) {
+                        obj.geometry.dispose();
+                    }
 
-            // 3. 释放材质内存
-            if (singularityPoints.material) {
-                singularityPoints.material.dispose();
+                    // 释放材质（处理数组或单个材质）
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) {
+                            obj.material.forEach((mat) => mat.dispose());
+                        } else {
+                            obj.material.dispose();
+                        }
+                    }
+
+                    // 释放纹理（若材质中包含纹理）
+                    if (obj.material && obj.material.map) {
+                        obj.material.map.dispose();
+                    }
+                });
+                scene.remove(singularitiesGroup);
+                singularitiesGroup.clear();
             }
 
             // 4. 清空引用（帮助JS垃圾回收）
-            singularityPoints = null;
+            singularitiesGroup = null;
             renderer.clear();
         }
 
         // Function to create/update singularities
         function createSingularities() {
-            present_singluar_points = true
             const container = document.getElementById('time-mode-plot');
             container.style.visibility = "hidden"
             container.innerHTML = ""
             const timeControl = document.getElementById('time-control-module');
             timeControl.style.visibility = "visible"
             timeControl.classList.remove("div-disabled");
-            // Clear existing singularities
-            // while(singularitiesGroup.children.length > 0){ 
-            //     singularitiesGroup.remove(singularitiesGroup.children[0]); 
-            // }
+
             clearSingularities();
 
             if (!PVF_pattern_data || PVF_pattern_data.length === 0) {
                 return;
             }
 
+            singularitiesGroup = new THREE.Group();
+            scene.add(singularitiesGroup);
             
             PVF_pattern_data.forEach(singularity => {
                 const type = singularity.type;
@@ -1463,14 +1486,13 @@
                 color = singularityColors[type] || singularityColors["default"];
                 color = '#' + color.toString(16).padStart(6, '0'); // Convert to hex string for Three.js
                 
-                console.log(coord);
+                // console.log(coord);
                 singularityPoints = renderDistanceFadePoints(vert_pos, color, coord, 100);
                 if (singularityPoints) {
-                    scene.add(singularityPoints);
+                    singularitiesGroup.add(singularityPoints);
+                    controls.update(); // 更新控制器
+                    renderer.render(scene, camera);
                 }
-                controls.update(); // 更新控制器
-                renderer.render(scene, camera);
-                // singularitiesGroup.add(group);
             });
             
             showError(`Loaded ${PVF_pattern_data.length} singularities`);
