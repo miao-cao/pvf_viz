@@ -231,8 +231,8 @@ def process_pvf_time_window(subject_name: str, session: str, file_name: str, pvf
     # directions_2 = np.vstack([v.flatten().T, u.flatten().T, w.flatten().T,]).T # swap x and y because numPy uses row-major order
 
     # normalise directions
-    directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
-    directions = directions / directions_norm_max
+    # directions_norm_max = np.max(np.linalg.norm(directions, ord=2, axis=1))
+    # directions = directions / directions_norm_max
 
     return {"positions": positions, "directions": directions}
 
@@ -712,7 +712,7 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
     #     source_data_time = source_data_time * 1000
     # elif np.max(source_data_time) > 1:
     #     source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 100
-    source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 200
+    # source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 200
     return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
 # ------------------------------------------------------
 
