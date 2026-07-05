@@ -16,7 +16,7 @@
     <script src="assets/js/three/loaders/OBJLoader.js"></script>
     <script src="assets/js/three/loaders/MTLLoader.js"></script>
     <script src="assets/js/three/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script> -->
     
     <link rel="preload" href="assets/js/chart/chart.umd.min.js" as="script">
     <script src="assets/js/chart/chart.umd.min.js"></script>
@@ -30,39 +30,11 @@
     <link rel="preload" href="assets/js/tailwindcss/tailwind.min.js" as="script">
     <script src="assets/js/tailwindcss/tailwind.min.js"></script>
 
-    <!-- <link rel="preload" href="https://cdn.tailwindcss.com" as="script" crossorigin> -->
-    <!-- <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js" as="script" crossorigin> -->
-    <!-- <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js" as="script" crossorigin> -->
-    <!-- <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js" as="script" crossorigin>
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js" as="script" crossorigin>
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js" as="script" crossorigin>
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js" as="script" crossorigin> -->
-    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script> -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/MTLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script> -->
-    <!-- <script src="wx/js/brain-surface-viewer.js"></script> -->
 
     <link rel="preload" href="wx/js/brain-loader.js" as="script">
     <link rel="preload" href="wx/js/brain-surface-viewer.js" as="script">
     <script src="wx/js/brain-loader.js"></script>
     <script src="wx/js/brain-surface-viewer.js"></script>
-    <script type="module">
-        // 导入本地文件
-        import { GIFEncoder, quantize, applyPalette } from './assets/js/gifenc/gifenc.esm.js';
-        import pako from './assets/js/pako/pako.esm.mjs';
-
-        // 挂载到全局供外部普通script调用
-        window.GIFTools = {
-            GIFEncoder,
-            quantize,
-            applyPalette,
-            pako
-        };
-    </script>
 
 
     <script>
@@ -455,9 +427,7 @@
 
         <!-- Visualization Area -->
         <div id="visualization-container" class="flex-1 vector-field-container relative">
-            <canvas id="vector-field-canvas">
-
-            </canvas>
+            <canvas id="vector-field-canvas"></canvas>
             
             <!-- Loading Indicator -->
             <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center bg-dark/70 backdrop-blur-sm z-30">
@@ -466,6 +436,7 @@
                     <p class="text-light/80">Loading PVF data...</p>
                 </div>
             </div>
+
             <!-- Time Overlay -->
             <div id="stats-overlay" class="absolute top-4 left-1/2 bg-dark/70 backdrop-blur-sm rounded-lg p-3 border border-white/10 text-xs text-light/80", style="font-size: xx-large;">
                 <div class="flex items-center gap-2 mb-1">
@@ -474,7 +445,7 @@
                 </div>
                 <div class="space-y-2">
                     <div class="flex justify-between">
-                        <span>Current Time:</span>
+                        <span>Current time: </span>
                         <span id="time-stat"></span>
                     </div>
 
@@ -695,21 +666,7 @@
         let sensor_signal_chart;
 
 
-        // GIF录制全局变量（新版）
-        // let isRecording = false;
-        // let gifEncoder = null;
-        // let gifFrameRate = 0.5
-        // const gifDelayMs = Math.round(1000 / gifFrameRate);
-
-        // GIF录制全局变量（修复版）
-        let   isRecording    = false;
-        let   gifEncoder     = null;
-        let   gifFrameRate   = 10; // 提高录制帧率，画面更顺滑
-        const gifDelayMs     = Math.round(1000 / gifFrameRate);
-        let   recordTimer    = null; // 新增录制定时器句柄，用于销毁
-        let   renderSyncLock = false; // 渲染同步锁，防止重复捕获
-        const GIF_DELAY = 40;
-
+        
         // const BufferGeometryUtils = require('three/addons/utils/BufferGeometryUtils.js');
         
         // Color map for Singularity types
@@ -768,7 +725,7 @@
                     throw new Error("CustomCurve: vector3List必须是包含至少2个THREE.Vector3的数组");
                 }
                 if (!vector3List.every(item => item instanceof THREE.Vector3)) {
-                    throw new Error("CustomCurve: vector3List中的所有元素必须是THREE.Vector3实例");
+                    throw new Error("CustomCurve: vector3List中的所有元素必须是THREE.Vector3实例")
                 }
                 
                 // 深拷贝保存原始Vector3列表，避免外部修改影响曲线内部数据（完全保留原始顶点）
@@ -826,7 +783,7 @@
             // Add singularity group to scene
 
             // Populate Legend
-            createLegend();
+            // createLegend();
             
             // Setup stats
             updateStats();
@@ -857,7 +814,8 @@
         function setupThreeJS() {
             // Create scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x03080b); // THREE.Color(0x1E293B);0x03080b
+            // scene.background = new THREE.Color(0x03080b); // THREE.Color(0x1E293B);0x03080b
+            scene.background = new THREE.Color('#000000');
             // scene.rotation.x = Math.PI / 2; // Tilt the scene for better view
             // scene.rotation.y = Math.PI / 2; // Tilt the scene for better view
             scene.rotation.x = Math.PI / 2 * -1; // Tilt the scene for better view
@@ -1098,7 +1056,6 @@
 
             document.getElementById('show-source').addEventListener('change', (e) => {
                 present_source_estimate = e.target.checked;
-                // createSingularities();
                 if (present_source_estimate == true){
                     showSensorSignals();
                     loadVolume();
@@ -1302,7 +1259,6 @@
             }
         }
 
-
         /**
          * 渲染三维点集，透明度随到基准点距离变化（越远越不透明，最大0.7）
          * 复用原renderActivationPoints的Three.js Shader粒子渲染体系
@@ -1369,8 +1325,8 @@
             // ========== 新增：渲染基准中心点，同色、完全不透明(alpha固定0.7) ==========
             volume_positions.push(cx, cy, cz);
             colors.push(baseRgb.r, baseRgb.g, baseRgb.b);
-            alphas.push(0.7); // 中心点强制最大透明度，完全不透明
-            const centerPointSize = 3 * pointSize;
+            alphas.push(1); // 中心点强制最大透明度，完全不透明
+            const centerPointSize = 3.5 * pointSize;
             sizes.push(centerPointSize);
 
             // 3. 创建BufferGeometry，绑定顶点属性（与原函数完全一致）
@@ -1637,7 +1593,8 @@
                                 getVectorColor(vector, minMagnitude, maxMagnitude),
                             );
                             vectorObject = arrowHelper;
-                            vectorObject.setLength(1.2 * scale * (vector.magnitude - minMagnitude) / (maxMagnitude - minMagnitude), 0.4 * scale, 0.2 * scale);
+                            // vectorObject.setLength(1.2 * scale * (vector.magnitude - minMagnitude) / (maxMagnitude - minMagnitude), 0.4 * scale, 0.2 * scale);
+                            vectorObject.setLength(1.2 * scale * vector.magnitude, 0.4 * scale, 0.2 * scale);
                             break;
                             
                         case 'lines':
@@ -1780,6 +1737,10 @@
             container.style.display = 'flex';
             container.style.flexDirection = 'row';
 
+            // containerCanvas = document.createElement('canvas');
+            // containerCanvas.width = config.width + 100;
+            // containerCanvas.height = config.height + 20;
+
             // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
             const colorGradientStyleBackground = `linear-gradient(to bottom, ${vectorField_end_color} 0%,  ${vectorField_start_color} 100%)`;
             // console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
@@ -1795,6 +1756,7 @@
             // 强制开启背景渲染
             colorbarGradient.style.backgroundSize = '100% 100%';
             colorbarGradient.style.backgroundRepeat = 'no-repeat';
+            // containerCanvas.appendChild(colorbarGradient);
             container.appendChild(colorbarGradient);
 
             // 步骤2：创建刻度和标签容器
@@ -1813,7 +1775,7 @@
             maxLabel.textContent = 'Max: ' + maxMagnitude.toFixed(2);
             maxLabel.style.marginTop = '0px'; // 微调位置，对齐渐变顶部
             labelsContainer.appendChild(maxLabel);
-
+            
             // // 50%（白）标签（中间）
             // const midLabel = document.createElement('div');
             // midLabel.textContent = 'Middle';
@@ -1835,9 +1797,11 @@
             minLabel.style.marginBottom = '0px'; // 微调位置，对齐渐变底部
             labelsContainer.appendChild(minLabel);
 
+            // containerCanvas.appendChild(labelsContainer);
             container.appendChild(labelsContainer);
 
             // console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
+            // container.appendChild(containerCanvas);
             return container;
         }
 
@@ -2248,6 +2212,10 @@
             container.style.display = 'flex';
             container.style.flexDirection = 'row';
 
+            // containerCanvas = document.createElement('canvas');
+            // containerCanvas.width = config.width + 100;
+            // containerCanvas.height = config.height + 20;
+
             // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
             const colorGradientStyleBackground = `linear-gradient(to bottom, ${streamline_start_color_string} 0%, #FFFFFF 50%, ${String(streamline_end_color_string)} 100%)`;
             // console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
@@ -2264,6 +2232,7 @@
             colorbarGradient.style.backgroundSize = '100% 100%';
             colorbarGradient.style.backgroundRepeat = 'no-repeat';
             container.appendChild(colorbarGradient);
+            // containerCanvas.appendChild(colorbarGradient);
 
             // 步骤2：创建刻度和标签容器
             const labelsContainer = document.createElement('div');
@@ -2304,6 +2273,8 @@
             labelsContainer.appendChild(minLabel);
 
             container.appendChild(labelsContainer);
+            // containerCanvas.appendChild(labelsContainer);
+            // container.appendChild(containerCanvas);
 
             // console.log('Colorbar 修复完成，已显示红-白-蓝渐变');
             return container;
@@ -3056,7 +3027,7 @@
             // const volumePoints = createSphereVolumeVisualizationCompat(positions, scalars, 8, 0.4);
             // console.log(current_timepoint)
             // volumeObjects = createSphereVolumeVisualizationCompat(positions, scalars, 3, 0.5);
-            volumeObjects = renderActivationPoints(positions, scalars, 1.5, 0.6);
+            volumeObjects = renderActivationPoints(positions, scalars, 1.5, 0.5);
             if (volumeObjects) {
                 scene.add(volumeObjects);
             }
@@ -3146,6 +3117,10 @@
                     dynamicOpacity = maxOpacity * (1 - normalizedValue / midPoint);
                 } else {
                     dynamicOpacity = maxOpacity * ((normalizedValue - midPoint) / (1 - midPoint));
+                }
+
+                if (normalizedValue == 1 || normalizedValue == 0){
+                    dynamicOpacity = 1;
                 }
 
                 alphas.push(dynamicOpacity);
@@ -3238,6 +3213,11 @@
             container.style.display       = 'flex';
             container.style.flexDirection = 'row';
 
+            // containerCanvas = document.createElement('canvas');
+            // containerCanvas.width  = "100%";
+            // containerCanvas.height = "100%";
+            // container.appendChild(containerCanvas);
+
             // 步骤1：创建颜色条渐变区域（核心修复：渐变语法）
             const colorGradientStyleBackground = `linear-gradient(to bottom, ${sourceEstimate_low_end} 0%, ${sourceEstimate_low_mid} 25%, ${sourceEstimate_high_mid} 75%, ${sourceEstimate_high_end} 100%)`;
             // console.log('Colorbar Gradient Style:', colorGradientStyleBackground);
@@ -3254,6 +3234,7 @@
             colorbarGradient.style.backgroundSize = '100% 100%';
             colorbarGradient.style.backgroundRepeat = 'no-repeat';
             container.appendChild(colorbarGradient);
+            // containerCanvas.appendChild(colorbarGradient);
 
             // 步骤2：创建刻度和标签容器
             const labelsContainer = document.createElement('div');
@@ -3294,6 +3275,7 @@
             labelsContainer.appendChild(minLabel);
 
             container.appendChild(labelsContainer);
+            // containerCanvas.appendChild(labelsContainer);
 
             return container;
         }
@@ -3439,86 +3421,108 @@
             clearInterval(animationInterval);
         }
 
-        // 视频录制全局变量
+        // ---------------- Video Recorder -----------------
+
         let mediaRecorder = null;
         let recordedChunks = [];
-        let videoStream = null;
+        let isRecording = false;
 
-        // 导出MP4视频按钮
+        const RECORD_FPS = 30;
+
+        // 导出视频MP4视频按钮
         exportVideoBtn.addEventListener('click', async () => {
             if (!isRecording) {
-                togglePlayPause();
                 startRecordVideo();
-                exportVideoBtn.innerHTML = '<i class="fas fa-stop"></i><span>Stop & Download MP4</span>';
+                togglePlayPause();
+                exportVideoBtn.innerHTML = '<i class="fas fa-stop"></i><span>Stop & Download Video</span>';
                 exportVideoBtn.classList.replace('bg-accent', 'bg-red-600');
             } else {
+                togglePlayPause(); // 暂停动画
                 stopRecordVideo();
-                exportVideoBtn.innerHTML = '<i class="fas fa-file-video"></i><span>Export MP4 Video</span>';
+                exportVideoBtn.innerHTML = '<i class="fas fa-file-video"></i><span>Export Video</span>';
                 exportVideoBtn.classList.replace('bg-red-600', 'bg-accent');
             }
         });
 
         // 启动视频录制
-        function startRecordVideo() {
+        async function startRecordVideo() {
+            isRecording = true;
             recordedChunks = [];
-            const chartCanvas = document.querySelector('#sensor-signal-plot canvas');
+
             const mainCanvas = document.getElementById('vector-field-canvas');
-            
+            const chartCanvas = document.querySelector('#sensor-signal-plot canvas');
             // 创建超大合成画布
-            const compositeCanvas = document.createElement('canvas');
-            compositeCanvas.width = mainCanvas.width;
-            compositeCanvas.height = mainCanvas.height;
-            const ctx = compositeCanvas.getContext('2d');
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = mainCanvas.width;
+            outputCanvas.height = mainCanvas.height + 400;
+            const ctx = outputCanvas.getContext('2d');
             // 每帧循环绘制两张画布
             function compositeLoop() {
-                ctx.clearRect(0,0,compositeCanvas.width,compositeCanvas.height);
-                if(chartCanvas) ctx.drawImage(chartCanvas, 600, 0);
-                ctx.drawImage(mainCanvas, 0, chartCanvas.height);
-                // if(chartCanvas_SRCBar) ctx.drawImage(chartCanvas_SRCBar,0, mainCanvas.height);
-                // if(chartCanvas_STRLNEBar) ctx.drawImage(chartCanvas_STRLNEBar, chartCanvas_SRCBar.length, mainCanvas.height);
-                // if(chartCanvas_VFBar) ctx.drawImage(chartCanvas_VFBar, chartCanvas_SRCBar.length + chartCanvas_STRLNEBar.length, mainCanvas.height);
+                ctx.clearRect(0,0,outputCanvas.width,outputCanvas.height);
+                ctx.fillStyle = "#000000"; // 黑色背景，可替换 #ffffff 白色、#111827 深灰等
+                if(chartCanvas) ctx.drawImage(chartCanvas,600,0);
+                ctx.drawImage(mainCanvas, 0, 450);
                 requestAnimationFrame(compositeLoop);
             }
             compositeLoop();
-            videoStream = compositeCanvas.captureStream(30);
-            try {
-                mediaRecorder = new MediaRecorder(videoStream, {
-                    mimeType: 'video/mp4; codecs="avc1.424028"'
-                });
-            } catch (e) {
-                // 降级兼容
-                mediaRecorder = new MediaRecorder(videoStream);
-            }
+            const stream = outputCanvas.captureStream(30);
 
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size) recordedChunks.push(e.data);
+            // 从Three.js Canvas获取视频流
+            // const stream = renderer.domElement.captureStream(RECORD_FPS);
+            
+
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: "video/webm;codecs=vp9"});
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
             };
 
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `PVF_Flow_${Date.now()}.mp4`;
-                document.body.append(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                showError("MP4视频导出完成");
+            mediaRecorder.onstart = () => {
+                isRecording = true;
+                console.log("Recording started");
             };
 
             mediaRecorder.start();
-            isRecording = true;
-            showError("正在录制动画视频，播放时间轴生成画面");
         }
 
-        // 停止录制
+        // 停止视频录制
         function stopRecordVideo() {
-            if (!mediaRecorder) return;
-            mediaRecorder.stop();
-            videoStream.getTracks().forEach(t => t.stop());
-            isRecording = false;
-            togglePlayPause();
+            return new Promise((resolve) => {
+
+                mediaRecorder.onstop = () => {
+
+                    const blob = new Blob(recordedChunks, {
+
+                        type: "video/webm"
+
+                    });
+
+                    const url = URL.createObjectURL(blob);
+
+                    const a = document.createElement("a");
+
+                    a.href = url;
+
+                    a.download = "PVF_Animation_" + new Date().toISOString() + ".webm";
+
+                    a.click();
+
+                    URL.revokeObjectURL(url);
+
+                    isRecording = false;
+
+                    console.log("Recording finished");
+
+                    resolve();
+
+                };
+
+                mediaRecorder.stop();
+
+            });
         }
 
 
