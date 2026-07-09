@@ -714,6 +714,14 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
     # elif np.max(source_data_time) > 1:
     #     source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 100
     # source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 200
+    if np.max(np.abs(source_data_time[:])) < 10 or np.max(np.abs(source_data_time[:])) > 10000: # this is for mne/sLORETA
+        # normalise all values
+        max_data = np.max(source_data_time[:])
+        min_data = np.min(source_data_time[:])
+        range_data = max_data - min_data
+        source_data_time = (source_data_time - min_data) / range_data
+        source_data_time = source_data_time * 100
+
     return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
 # ------------------------------------------------------
 
