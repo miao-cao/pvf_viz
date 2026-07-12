@@ -1,11 +1,10 @@
 import os
 import re
+import math
 import json
 import copy
 from pathlib import Path
 from typing import Dict, List, Any
-
-import re
 
 import mne
 import h5py
@@ -651,6 +650,16 @@ def _find_closest_indices(arr1, arr2):
     return closest_idx
 
 # ------------------------------------------------------
+
+def get_mantissa_exp(x):
+    if x == 0:
+        return 0.0, 0
+    abs_x    = abs(x)
+    exp      = math.floor(math.log10(abs_x))
+    mantissa = x / (10 ** exp)
+    return mantissa, exp
+
+# ------------------------------------------------------
 # load and prepare source estimate data
 def load_subject_source_estimate(subject_name: str, session: str, meta_file: str, file_name: str, timepoint: str):
     global subjects_loaded_pvf_data
@@ -707,20 +716,23 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
     source_data_time = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'][:, int(timepoint)]
     source_vert_no   = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_vert_no']
     source_positions = subjects_loaded_pvf_data[subject_name][session]['vol_src'][0]['rr'][source_vert_no] * 1000
-    # if np.max(source_data_time) < 1e-10:
-    #     source_data_time = source_data_time * 1e16
-    # elif np.max(source_data_time) < 1 and np.max(source_data_time) > 1e-10:
-    #     source_data_time = source_data_time * 1000
-    # elif np.max(source_data_time) > 1:
-    #     source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 100
-    # source_data_time = (source_data_time / np.max(np.abs(source_data_time))) * 200
-    if (np.max(np.abs(source_data_time[:])) < 1000 and np.min(source_data_time[:])> 0) or (np.max(np.abs(source_data_time[:])) > 10000 and np.min(source_data_time[:])> 0): # this is for mne/sLORETA
-        # normalise all values
-        max_data = np.max(source_data_time[:])
-        min_data = np.min(source_data_time[:])
-        range_data = max_data - min_data
-        source_data_time = (source_data_time - min_data) / range_data
-        source_data_time = source_data_time * 100
+
+    global_source_data_max = np.max(np.abs(subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'])[:])
+
+    if np.min(source_data_time[:]) < 0: # lcmv, dics
+        max_value   = np.max(np.abs(source_data_time[:]))
+        extra_ratio = max_value / global_source_data_max
+        _, exp = get_mantissa_exp(max_value)
+        scale = 10 ** (exp * -1)
+        source_data_time = source_data_time * scale * 100 * extra_ratio
+    else: # mne, sloreta
+        max_value   = np.max(np.abs(source_data_time[:]))
+        extra_ratio = max_value / global_source_data_max
+        _, exp = get_mantissa_exp(max_value)
+        scale = 10 ** (exp * -1)
+        source_data_time = source_data_time * scale * 100 * extra_ratio
+        half_max_thres = np.percentile(source_data_time[:], 80)
+        source_data_time[source_data_time < half_max_thres] = 0
 
     return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
 # ------------------------------------------------------
