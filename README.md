@@ -18,11 +18,9 @@ Freesurfer subjects
 
 
 # To do list - PVF publications
- - Visualise singular points and extents.
- - Export plays (series of frames) as GIF file.
  - Publication-level figure exports (publication-level fine tuning of colarmaps, vectors and view angles).
 
-# To do list - FDRI project stream 4
+# To do list - FDRI project stream 4, phase 2
  - Source estimate viewer alone.
  - MRI viewer (traditional 3 views, grey value intensity) integration.
  - Diffusion MRI/tractography viewer integration.
