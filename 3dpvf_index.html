@@ -837,6 +837,7 @@
                 canvas         : document.getElementById('vector-field-canvas'),
                 antialias      : true,
                 alpha          : true,
+                preserveDrawingBuffer:true,
                 powerPreference: 'high-performance',
             });
 
@@ -907,7 +908,8 @@
             toggleFullscreenBtn.addEventListener('click', toggleFullscreen);
             
             // Export data button
-            exportDataBtn.addEventListener('click', export3DScreenshot);
+            // exportDataBtn.addEventListener('click', export3DScreenshot);
+            exportDataBtn.addEventListener('click', export3DScreenshotTrans);
         }
         
         // Handle window resize
@@ -1991,6 +1993,82 @@
             camera.updateProjectionMatrix();
             renderer.render(scene, camera);   // 重新画回屏幕
         }
+
+
+        /**
+         * 导出【当前相机视角】透明背景高清PNG
+         * @param {number} targetWidth 导出宽度 默认3840
+         * @param {number} targetHeight 导出高度 默认2160
+         * @param {string} filename 文件名前缀
+         */
+        function export3DScreenshotTrans(targetWidth = 3840, targetHeight = 2160, filename = "pvf_current_view_trans") {
+            // 保存当前状态
+            const oldBackground = scene.background;
+            const oldAspect = camera.aspect;
+            targetWidth = 2560;
+
+            try {
+
+                // 创建离屏Renderer
+                const offRenderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    alpha: true,
+                    preserveDrawingBuffer: true,
+                    powerPreference: "high-performance"
+                });
+
+                offRenderer.setSize(targetWidth, targetHeight);
+
+                // 提高导出质量（真正高清）
+                offRenderer.setPixelRatio(1);
+
+                // 完全透明背景
+                offRenderer.setClearColor(0x000000, 0);
+                scene.background = null;
+
+                // 克隆当前相机
+                const exportCamera = camera.clone();
+                exportCamera.aspect = targetWidth / targetHeight;
+                exportCamera.updateProjectionMatrix();
+
+                controls.update();
+
+                // 渲染两遍，避免透明物体缺失
+                offRenderer.render(scene, exportCamera);
+                offRenderer.render(scene, exportCamera);
+
+                // 导出PNG
+                const dataURL = offRenderer.domElement.toDataURL("image/png");
+
+                const link = document.createElement("a");
+                link.href = dataURL;
+                link.download =
+                    `${filename}_${targetWidth}x${targetHeight}_${Date.now()}.png`;
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showError(`Exported ${targetWidth}x${targetHeight} transparent PNG`);
+
+                offRenderer.dispose();
+
+            } catch (err) {
+
+                console.error(err);
+                showError(err.message);
+
+            } finally {
+
+                scene.background = oldBackground;
+                camera.aspect = oldAspect;
+                camera.updateProjectionMatrix();
+
+                renderer.render(scene, camera);
+
+            }
+        }
+
 
 
         // Animation loop
