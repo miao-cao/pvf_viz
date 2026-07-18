@@ -717,6 +717,8 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
     source_vert_no   = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_vert_no']
     source_positions = subjects_loaded_pvf_data[subject_name][session]['vol_src'][0]['rr'][source_vert_no] * 1000
 
+    source_data_time_max, source_data_time_min = np.max(source_data_time[:]), np.min(source_data_time[:])
+
     global_source_data_max = np.max(np.abs(subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'])[:])
 
     if np.min(source_data_time[:]) < 0: # lcmv, dics
@@ -734,7 +736,10 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
         half_max_thres = np.percentile(source_data_time[:], 80)
         source_data_time[source_data_time < half_max_thres] = 0
 
-    return {'positions': source_positions.tolist(), 'values': source_data_time.tolist()}
+    return {'positions' : source_positions.tolist(), 
+            'values'    : source_data_time.tolist(),
+            'values_max': source_data_time_max,
+            'values_min': source_data_time_min,}
 # ------------------------------------------------------
 
 
