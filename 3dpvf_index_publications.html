@@ -3099,8 +3099,9 @@
             const data = await response.json();
             positions = data.positions;
             scalars   = data.values;
-            maxValue  = Math.max(...scalars);
-            minValue  = Math.min(...scalars);
+            maxValue  = data.values_max;           // Math.max(...scalars);
+            minValue  = data.values_min;           // Math.min(...scalars);
+            scale_exp = data.scale_exp;
             clearVolume();
             // const volumePoints = createSphereVolumeVisualizationCompat(positions, scalars, 8, 0.4);
             // console.log(current_timepoint)
@@ -3109,7 +3110,7 @@
             if (volumeObjects) {
                 scene.add(volumeObjects);
             }
-            createActivationColorbar(maxValue, minValue);
+            createActivationColorbar(maxValue, minValue, scale_exp);
             controls.update(); // 更新控制器
             renderer.render(scene, camera);
         }
@@ -3258,7 +3259,7 @@
             return points;
         }
 
-        function createActivationColorbar(maxMagnitude=1, minMagnitude=-1, options = {}) {
+        function createActivationColorbar(maxMagnitude=1, minMagnitude=-1, scale_exp, options = {}) {
             // 默认配置（红-白-蓝）
             const config = {
                 containerId: 'activation-colorbar-container',
@@ -3327,7 +3328,7 @@
 
             // 100%（蓝）标签（顶部）
             const maxLabel = document.createElement('div');
-            maxLabel.textContent = 'Max: ' + maxMagnitude.toFixed(2);
+            maxLabel.textContent = 'Max: ' + maxMagnitude.toFixed(2) + 'e' + scale_exp;
             maxLabel.style.marginTop = '0px'; // 微调位置，对齐渐变顶部
             labelsContainer.appendChild(maxLabel);
 
@@ -3348,7 +3349,7 @@
 
             // 0%（红）标签（底部）
             const minLabel = document.createElement('div');
-            minLabel.textContent = 'Min: ' + minMagnitude.toFixed(2);
+            minLabel.textContent = 'Min: ' + minMagnitude.toFixed(2) + 'e' + scale_exp;
             minLabel.style.marginBottom = '0px'; // 微调位置，对齐渐变底部
             labelsContainer.appendChild(minLabel);
 
