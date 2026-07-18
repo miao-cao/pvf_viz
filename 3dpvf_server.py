@@ -740,8 +740,9 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
 
     return {'positions' : source_positions.tolist(), 
             'values'    : source_data_time.tolist(),
-            'values_max': source_data_time_max,
-            'values_min': source_data_time_min,}
+            'values_max': source_data_time_max * scale,
+            'values_min': source_data_time_min * scale,
+            'scale_exp' : exp,}
 # ------------------------------------------------------
 
 
