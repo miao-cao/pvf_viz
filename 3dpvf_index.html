@@ -3099,8 +3099,8 @@
             const data = await response.json();
             positions = data.positions;
             scalars   = data.values;
-            maxValue  = Math.max(...scalars);
-            minValue  = Math.min(...scalars);
+            maxValue  = data.values_max;           // Math.max(...scalars);
+            minValue  = data.values_min;           // Math.min(...scalars);
             clearVolume();
             // const volumePoints = createSphereVolumeVisualizationCompat(positions, scalars, 8, 0.4);
             // console.log(current_timepoint)

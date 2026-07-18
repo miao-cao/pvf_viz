@@ -717,7 +717,9 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
     source_vert_no   = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_vert_no']
     source_positions = subjects_loaded_pvf_data[subject_name][session]['vol_src'][0]['rr'][source_vert_no] * 1000
 
-    source_data_time_max, source_data_time_min = np.max(source_data_time[:]), np.min(source_data_time[:])
+    # obtain max and min of current time source signals.
+    source_data_time_max, source_data_time_min = float(np.max(source_data_time[:])), float(np.min(source_data_time[:]))
+    print(f"curent time source signal max: {source_data_time_max}, min: {source_data_time_min}")
 
     global_source_data_max = np.max(np.abs(subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'])[:])
 
