@@ -3110,7 +3110,7 @@
             if (volumeObjects) {
                 scene.add(volumeObjects);
             }
-            createActivationColorbar(maxValue, minValue);
+            createActivationColorbar(maxValue, minValue, scale_exp);
             controls.update(); // 更新控制器
             renderer.render(scene, camera);
         }
