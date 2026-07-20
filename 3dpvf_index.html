@@ -315,14 +315,14 @@
                             </button>
                         </div>
                         
-                        <div>
+                        <!-- <div>
                             <label class="block text-sm font-medium text-light/80 mb-1">Show Grid</label>
                             <div class="flex items-center">
-                                <input type="checkbox" id="show-grid" checked 
+                                <input type="checkbox" id="show-grid" unchecked 
                                     class="w-4 h-4 text-primary bg-dark/50 border border-white/10 rounded focus:ring-primary/50">
                                 <label for="show-grid" class="ml-2 text-sm text-light/80">Display coordinate grid</label>
                             </div>
-                        </div>
+                        </div> -->
                     </div>
 
                 </div>
@@ -863,8 +863,8 @@
             scene.add(directionalLight);
             
             // Add grid helper
-            gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
-            scene.add(gridHelper);
+            // gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x333333);
+            // scene.add(gridHelper);
             
             // Add orbit controls
             controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -957,11 +957,11 @@
                 updateVectorObjects();
             });
             
-            // Show grid
-            document.getElementById('show-grid').addEventListener('change', (e) => {
-                settings.showGrid = e.target.checked;
-                gridHelper.visible = settings.showGrid;
-            });
+            // // Show grid
+            // document.getElementById('show-grid').addEventListener('change', (e) => {
+            //     settings.showGrid = e.target.checked;
+            //     gridHelper.visible = settings.showGrid;
+            // });
             
             // Color scheme
             document.getElementById('color-scheme').addEventListener('change', (e) => {
