@@ -163,8 +163,8 @@ async def get_brain_surfaces(subject: str = Query(None)):
     rh_vertices, rh_faces  = mne.read_surface(rh_surf_path)
 
     # flip left-right - a trial
-    # lh_vertices[:, 0] = lh_vertices[:,0] * -1
-    # rh_vertices[:, 0] = rh_vertices[:,0] * -1
+    lh_vertices[:, 0] = lh_vertices[:,0] * -1
+    rh_vertices[:, 0] = rh_vertices[:,0] * -1
 
     print(f"Brain surfaces for subject: {subject} loaded.")
     
@@ -223,6 +223,7 @@ def process_pvf_time_window(subject_name: str, session: str, file_name: str, pvf
     if vol_src is not None:
         vert_no   = volume_vert_ind[mask_volume]
         positions = vol_src[0]['rr'][vert_no] * 1000
+        positions[:, 0] = positions[:, 0] * -1
         # positions_2 = vol_src[0]['rr'][vert_no] * 1000
     else:
         positions = np.zeros((np.sum(mask_volume), 3))
@@ -282,6 +283,7 @@ def process_modes(subject_name: str, session: str, file_name: str, mode_id: int)
         volume_vert_ind = np.asarray(volume_vert_ind)
         vert_no         = volume_vert_ind[mask_volume]
         positions = vol_src[0]['rr'][vert_no] * 1000
+        positions[:, 0] = positions[:, 0] * -1
         
     else:
         positions = np.zeros((np.sum(mask_volume), 3))
@@ -634,7 +636,10 @@ def prepare_singular_point_extent(pattern_data: Dict, subject_name: str, session
         singular_point['vert_positions'] = []
         for vert_ind in vert_ind_list:
             if vol_src is not None:
-                singular_point['vert_positions'].append((vol_src[0]['rr'][vert_ind] * 1000).tolist())
+                position = (vol_src[0]['rr'][vert_ind] * 1000)
+                position[:, 0] = position[:, 0] * -1
+                # singular_point['vert_positions'].append((vol_src[0]['rr'][vert_ind] * 1000).tolist())
+                singular_point['vert_positions'].append(position.tolist())
     return pattern_data
 # ------------------------------------------------------
 
@@ -720,6 +725,7 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
     source_data_time = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_signals'][:, int(timepoint)]
     source_vert_no   = subjects_loaded_pvf_data[subject_name][session]["source_estimate"][file_name]['source_vert_no']
     source_positions = subjects_loaded_pvf_data[subject_name][session]['vol_src'][0]['rr'][source_vert_no] * 1000
+    source_positions[:, 0] = source_positions[:, 0] * -1
 
     # obtain max and min of current time source signals.
     source_data_time_max, source_data_time_min = float(np.max(source_data_time[:])), float(np.min(source_data_time[:]))
