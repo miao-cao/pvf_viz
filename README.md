@@ -19,6 +19,7 @@ Freesurfer subjects
 
 # To do list - PVF publications
  - Publication-level figure exports (publication-level fine tuning of colarmaps, vectors and view angles).
+ - left-right
 
 # To do list - FDRI project stream 4, phase 2
  - Source estimate viewer alone.
