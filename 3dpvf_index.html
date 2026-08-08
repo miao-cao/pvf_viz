@@ -491,8 +491,7 @@
                 <div class="space-y-6 mb-5">
                     <div>
                         <label class="block text-sm font-medium text-light/80 mb-1">Time Frame</label>
-                        <input type="range" id="time-slider" min="0" max="100" value="0" 
-                            class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
+                        <input type="range" id="time-slider" min="0" max="100" value="0" class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary">
                         <div class="flex justify-between text-xs text-light/60 mt-1">
                             <span id="time-slider-tmin">Time min=</span>
                             <span id="time-slider-ct">Current Time=</span>
@@ -606,12 +605,12 @@
         let PVF_condA_data      = {};
         let PVF_temporal_modes  = {};
         let PVF_condA           = 0;
-        let PVF_pattern_data    = []; // Changed to array to hold current list of singularities
+        let PVF_pattern_data    = [];                       // Changed to array to hold current list of singularities
         let PVF_sensor_signals  = [];
         
 
         let volume_size             = 50;                   // where brain, vectors and streamlines reside
-        let streamlineWidth         = 0.15;                  // 0.025 streamline tube width
+        let streamlineWidth         = 0.15;                 // 0.025 streamline tube width
         let streamlinesGroup        = new THREE.Group();
         let singularitiesGroup      = new THREE.Group();    // Group for singularities
         let present_PVF             = false;
@@ -637,16 +636,16 @@
         current_timepoint = 0
 
         let streamline_start_color        = 0xFF3131;
-        let streamline_end_color          = 0x4169E1; // Red
+        let streamline_end_color          = 0x4169E1;   // Red
         let streamline_start_color_string = '#FF3131';
         let streamline_end_color_string   = '#4169E1';
 
         let vectorField_start_color       = '#FFFFE7';
         let vectorField_end_color         = '#FFEB3B';
         
-        let sourceEstimate_low_end        = '#FF7F50'; // '#6495ED'
-        let sourceEstimate_low_mid        = '#FBCEB1'; // '#F0FFFF'
-        let sourceEstimate_high_mid       = '#F0FFFF'; 
+        let sourceEstimate_low_end        = '#FF7F50';  // '#6495ED'
+        let sourceEstimate_low_mid        = '#FBCEB1';  // '#F0FFFF'
+        let sourceEstimate_high_mid       = '#F0FFFF';
         let sourceEstimate_high_end       = '#6495ED';
         
 
