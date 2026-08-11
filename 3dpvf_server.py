@@ -630,8 +630,9 @@ def prepare_singular_point_extent(pattern_data: Dict, subject_name: str, session
         return []
     vol_src = subjects_loaded_pvf_data[subject_name][session]['vol_src']
     for singular_point in pattern_data:
-        vert_ind_list = singular_point['vert_idx_list']
+        singular_point['coordinate']     = (vol_src[0]['rr'][singular_point['critical_point_vert_idx']] * 1000).tolist()
         singular_point['vert_positions'] = []
+        vert_ind_list                    = singular_point['vert_idx_list']
         for vert_ind in vert_ind_list:
             if vol_src is not None:
                 singular_point['vert_positions'].append((vol_src[0]['rr'][vert_ind] * 1000).tolist())
@@ -748,7 +749,6 @@ def load_subject_source_estimate(subject_name: str, session: str, meta_file: str
             'values_min': source_data_time_min * scale,
             'scale_exp' : exp,}
 # ------------------------------------------------------
-
 
 # ------ response of pvf (json) data to api requests --------------
 def resp_pvf_json(subject_name: str, session: str, file_name: str, timepoint: int) -> Dict[str, Any]:
