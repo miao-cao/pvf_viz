@@ -789,7 +789,9 @@
             
             // Start animation loop
             animate();
-            
+
+            // 执行创建
+            createMarkerPoint();
             // // Hide loading indicator
             setTimeout(() => {
                 loadingIndicator.classList.add('opacity-0');
@@ -809,6 +811,33 @@
             sidebarOverlay.classList.toggle('hidden');
         }
         
+
+        // 绘制坐标(10, 10, 10)标记点
+        function createMarkerPoint() {
+            const markerGeo = new THREE.SphereGeometry(0.8, 16, 16);
+            const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // 红色圆点
+            const marker = new THREE.Mesh(markerGeo, markerMat);
+            marker.position.set(50, 50, 50);
+            marker.name = "fixed-marker-10-10-10";
+            scene.add(marker);
+
+            // 可选：添加文字标签
+            const canvasText = document.createElement('canvas');
+            const ctx = canvasText.getContext('2d');
+            canvasText.width = 256;
+            canvasText.height = 64;
+            ctx.fillStyle = "#fff";
+            ctx.font = "30px Arial";
+            ctx.fillText("(10,10,10)", 10, 40);
+            const textTexture = new THREE.CanvasTexture(canvasText);
+            const textSpriteMat = new THREE.SpriteMaterial({ map: textTexture });
+            const textSprite = new THREE.Sprite(textSpriteMat);
+            textSprite.position.set(50, 52, 50);
+            textSprite.scale.set(8, 2, 1);
+            scene.add(textSprite);
+        }
+
+
         // Setup Three.js scene
         function setupThreeJS() {
             // Create scene
